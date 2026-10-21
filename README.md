@@ -133,4 +133,4 @@ Derived from the battle-tested pipeline in `KingMoonk/TRAINER`:
 
 ## ⚖️ Legal
 
-© 2025 Astrea Labs LLC. All rights reserved.
+© 2025–2026 Astrea Labs LLC. All rights reserved. Proprietary and closed-source; see [LICENSE](LICENSE).

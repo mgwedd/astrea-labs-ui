@@ -2,6 +2,7 @@
   "name": "@astrea/research-registry",
   "version": "0.1.0",
   "private": true,
+  "license": "UNLICENSED",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
