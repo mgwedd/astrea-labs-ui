@@ -1,0 +1,33 @@
+---
+title: Aletheia is in public beta
+summary: A macOS app that turns video-call therapy sessions into progress notes without sending anything off the machine.
+date: '2026-10-21'
+tags: [aletheia, on-device ai, privacy]
+project: aletheia
+---
+
+Aletheia is a native macOS app for clinicians who see patients over video. It records the session, transcribes it, drafts a progress note, and lets you search and ask questions across a patient's history. All of that happens on the Mac. There is no server in the loop.
+
+## Why on-device
+
+Session audio is about as sensitive as data gets. The usual answer is a cloud service with a business associate agreement. We wanted to see how far you could get without one. On current Apple Silicon the answer is: far enough to write the note.
+
+- **Transcription** runs locally with whisper.cpp on Metal. Your microphone and the call audio are captured as separate tracks, so the transcript knows who said what.
+- **Note drafting** runs a local language model, constrained by a grammar, so the output always matches the format you chose: narrative, SOAP, DAP, BIRP or GIRP.
+- **Models** are sized to your hardware and downloaded in-app. Each one is pinned to a commit and verified by SHA-256.
+
+There are no accounts, no analytics and no telemetry. By default, raw audio is deleted once it has been transcribed.
+
+## Asking questions of the record
+
+Ask answers questions about one session or about a patient's whole history. Answers about a patient's history say how much of the record they actually read, so you can tell a grounded answer from a partial one.
+
+Global search uses SQLite FTS5 with sound-alike matching for names. Speech models misspell names, and a search that can't find "Katherine" when the transcript says "Catherine" is no use in practice.
+
+## Security posture
+
+The app runs in the App Sandbox. It has an app lock and an audit log that records actions without recording patient content. The repository maps its safeguards to the HIPAA Security Rule. CI cuts a semver release on every merge.
+
+## Trying it
+
+The beta needs macOS 14 or later. We recommend Apple Silicon with 16 GB of memory. You can download the latest build from the [downloads page](/downloads). The design documents, including encryption and the fine-tuning pipeline, are linked from the [project page](/projects/aletheia).

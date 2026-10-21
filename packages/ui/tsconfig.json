@@ -1,0 +1,11 @@
+{
+  "extends": "@astrea/config-typescript/react-library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "paths": {
+      "@astrea/ui/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}
