@@ -209,31 +209,6 @@ export const projects: Project[] = [
     featured: false,
     order: 6,
   },
-  {
-    slug: 'things-mcp',
-    name: 'Things MCP Server',
-    tagline: 'Things 3 as agent tools, with trust tiers and an encrypted audit log.',
-    summary:
-      'A local MCP server that splits capture, reorganize and read into separate trust tiers, keeps its token in the Keychain, and logs every call.',
-    description: [
-      'An experiment in giving agents access to a personal system without giving them the keys. Capture tools are open — the worst a runaway agent can do is add noise to the Inbox. Reorganize tools load an auth token from the macOS Keychain on first use. Read tools go through AppleScript.',
-      'Every call is written to a SQLite audit log with arguments encrypted under AES-256-GCM.',
-    ],
-    domains: ['security', 'software'],
-    status: 'research',
-    year: 2026,
-    stack: ['TypeScript', 'MCP', 'SQLite', 'macOS Keychain'],
-    highlights: [
-      'Capture vs. reorganize split as a policy primitive',
-      'Token kept in the macOS Keychain',
-      'Encrypted audit log of every tool call',
-    ],
-    repo: { owner: 'mgwedd', name: 'things-mcp-server' },
-    links: {},
-    platforms: ['macos'],
-    featured: false,
-    order: 7,
-  },
 ];
 
 /** Upstream work in open-source projects. */

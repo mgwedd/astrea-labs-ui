@@ -14,7 +14,7 @@ export const DOMAINS: DomainInfo[] = [
   {
     id: 'software',
     label: 'Software',
-    description: 'Native apps and developer tools, shipped with real release pipelines.',
+    description: 'Native apps and developer tools.',
   },
   {
     id: 'security',

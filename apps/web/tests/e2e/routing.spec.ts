@@ -4,7 +4,7 @@ test.describe('Astrea Labs routing', () => {
   test('home page lists selected work', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Astrea Labs/);
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('A small lab');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('AI research lab');
     await expect(page.getByRole('heading', { name: 'Selected work' })).toBeVisible();
   });
 

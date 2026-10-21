@@ -27,12 +27,10 @@ export default function HomePage() {
             <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
           <h1 className="max-w-2xl text-balance text-4xl font-extrabold tracking-tight md:text-5xl">
-            A small lab for private AI, autonomous systems, and secure software.
+            AI research lab focused on embedded systems.
           </h1>
           <p className="max-w-xl text-pretty text-lg text-muted-foreground">
-            Astrea Labs builds tools that run on your own hardware and keep your data there — from clinical note-taking
-            and legal discovery to from-scratch model training and orbital tracking. When a project is ready, it ships
-            as a real release.
+            Astrea Labs builds tools that run on your own hardware and keep your data there.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild>

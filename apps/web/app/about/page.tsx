@@ -23,7 +23,7 @@ export default function AboutPage() {
     <div className="container max-w-3xl pb-16">
       <PageHeader eyebrow="About" title="A small, independent lab">
         {site.legalName} is Michael and Christopher Wedd. We work and experiment together across AI research,
-        autonomous systems and security, and ship it as real releases when it’s ready.
+        autonomous systems and security.
       </PageHeader>
 
       <div className="prose prose-neutral max-w-none dark:prose-invert">
@@ -31,10 +31,6 @@ export default function AboutPage() {
           The common thread is control: tools that run on hardware you own, keep data where it was created, and are
           specified carefully enough to trust. That shows up as on-device clinical AI, from-scratch model training,
           orbital tracking, and agent tooling with a single credentialed gate.
-        </p>
-        <p>
-          We send fixes upstream to the open-source projects we work with. Where a project is ready for other people,
-          it gets a download, a changelog and design notes.
         </p>
       </div>
 
