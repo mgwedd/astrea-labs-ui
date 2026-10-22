@@ -29,6 +29,7 @@ import {
 import { getLatestRelease, formatBytes } from '@/lib/releases';
 import { formatDate } from '@/lib/writing';
 import { GitHubMark } from './logo';
+import { Media } from './media/media';
 import { ProjectStatusBadge } from './project-status';
 
 export const PLATFORM_LABEL: Record<Platform, string> = {
@@ -104,6 +105,19 @@ export async function ProjectDetail({ project }: { project: Project }) {
           )}
         </div>
       </header>
+
+      {project.media && project.media.length > 0 && (
+        <section aria-label="Media" className="pb-12">
+          <Media {...project.media[0]} priority className="my-0" />
+          {project.media.length > 1 && (
+            <div className="mt-6 grid gap-6 sm:grid-cols-2">
+              {project.media.slice(1).map((m) => (
+                <Media key={m.src} {...m} className="my-0" />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <div className="grid gap-10 lg:grid-cols-[1fr_18rem]">
         <Tabs defaultValue="overview">
