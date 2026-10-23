@@ -27,5 +27,6 @@ test.describe('Astrea Labs routing', () => {
   test('unknown pages 404', async ({ page }) => {
     const res = await page.goto('/projects/does-not-exist');
     expect(res?.status()).toBe(404);
+    await expect(page.getByRole('banner')).toBeVisible();
   });
 });
