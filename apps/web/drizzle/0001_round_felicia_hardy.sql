@@ -1,0 +1,1 @@
+ALTER TABLE "licenses" ALTER COLUMN "expires_at" DROP NOT NULL;

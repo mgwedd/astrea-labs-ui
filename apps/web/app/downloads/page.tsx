@@ -70,6 +70,15 @@ export default async function DownloadsPage() {
                     {[...new Set(p.downloads.map((d) => d.note).filter(Boolean))].join(' · ')}
                   </p>
                 )}
+                {p.slug === 'aletheia' && (
+                  <p className="text-sm text-muted-foreground">
+                    Aletheia needs a free beta license.{' '}
+                    <Link href="/aletheia/beta" className="underline underline-offset-4 hover:text-foreground">
+                      Get one by email
+                    </Link>
+                    .
+                  </p>
+                )}
               </CardContent>
               {release && (
                 <CardFooter className="justify-between text-sm text-muted-foreground">

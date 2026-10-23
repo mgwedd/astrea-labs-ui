@@ -4,8 +4,39 @@
     {
       "name": "web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--filter", "@astrea/web", "start"],
+      "runtimeArgs": [
+        "--filter",
+        "@astrea/web",
+        "start"
+      ],
       "port": 3000
+    },
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@astrea/web",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "web-https",
+      "runtimeExecutable": "vercel",
+      "runtimeArgs": [
+        "env",
+        "run",
+        "-e",
+        "development",
+        "--",
+        "pnpm",
+        "--filter",
+        "@astrea/web",
+        "dev:https"
+      ],
+      "port": 3000,
+      "url": "https://localhost:3000"
     }
   ]
 }
