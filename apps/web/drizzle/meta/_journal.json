@@ -36,6 +36,13 @@
       "when": 1792773292696,
       "tag": "0004_agreements_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792780823620,
+      "tag": "0005_account_invites",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,32 @@
+{
+  "displayName": "Astrea Labs",
+  "borders": {
+    "button_border_radius": 6, "button_border_weight": 1, "buttons_style": "rounded",
+    "input_border_radius": 6, "input_border_weight": 1, "inputs_style": "rounded",
+    "show_widget_shadow": true, "widget_border_weight": 1, "widget_corner_radius": 8
+  },
+  "colors": {
+    "body_text": "#020817", "error": "#EF4444", "header": "#020817", "icons": "#64748B",
+    "input_background": "#FFFFFF", "input_border": "#E2E8F0", "input_filled_text": "#020817",
+    "input_labels_placeholders": "#64748B", "links_focused_components": "#020817",
+    "primary_button": "#0F172A", "primary_button_label": "#F8FAFC",
+    "secondary_button_border": "#E2E8F0", "secondary_button_label": "#020817",
+    "success": "#16A34A", "widget_background": "#FFFFFF", "widget_border": "#E2E8F0"
+  },
+  "fonts": {
+    "body_text": { "bold": false, "size": 87.5 },
+    "buttons_text": { "bold": true, "size": 87.5 },
+    "font_url": "",
+    "input_labels": { "bold": false, "size": 87.5 },
+    "links": { "bold": true, "size": 87.5 },
+    "links_style": "normal",
+    "reference_text_size": 16,
+    "subtitle": { "bold": false, "size": 87.5 },
+    "title": { "bold": true, "size": 150 }
+  },
+  "page_background": { "background_color": "#F1F5F9", "background_image_url": "", "page_layout": "center" },
+  "widget": {
+    "header_text_alignment": "left", "logo_height": 32, "logo_position": "center",
+    "logo_url": "https://astrealabs.com/icon.svg", "social_buttons_layout": "bottom"
+  }
+}
