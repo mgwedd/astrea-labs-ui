@@ -45,5 +45,8 @@ test-results/
 # Logs
 logs
 *.log
+
+# Claude Code personal overrides
+.claude/settings.local.json
 .vercel
 .env*
