@@ -120,7 +120,7 @@ jobs:
         run: pnpm build
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --filter @astrea/web exec playwright install --with-deps chromium
 
       - name: Run Playwright tests
         run: pnpm test:e2e

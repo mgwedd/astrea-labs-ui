@@ -26,6 +26,17 @@ export interface Download {
   note?: string;
 }
 
+export interface MediaItem {
+  /** Image, GIF, video file (`/media/...` or storage URL) or a YouTube/Vimeo link. */
+  src: string;
+  alt: string;
+  caption?: string;
+  /** Poster frame for self-hosted video. */
+  poster?: string;
+  /** Self-hosted video only: muted, looping, GIF-style. */
+  loop?: boolean;
+}
+
 export interface Project {
   slug: string;
   name: string;
@@ -52,6 +63,8 @@ export interface Project {
   /** Source-available / proprietary / OSI licence, shown verbatim. */
   license?: string;
   platforms?: Platform[];
+  /** Screenshots, demo clips and videos, shown on the project page. First item leads. */
+  media?: MediaItem[];
   featured: boolean;
   order: number;
 }
