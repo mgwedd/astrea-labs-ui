@@ -31,7 +31,7 @@ export const emailSends = pgTable(
     id: serial('id').primaryKey(),
     email: text('email').notNull(),
     kind: text('kind', {
-      enum: ['issue', 'resend', 'renewal', 'reissue', 'sign-link', 'key-link', 'received', 'decline'],
+      enum: ['issue', 'resend', 'renewal', 'reissue', 'sign-link', 'key-link', 'received', 'decline', 'account-invite'],
     }).notNull(),
     lid: uuid('lid'),
     sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
@@ -159,3 +159,22 @@ export const keyLinks = pgTable('key_links', {
 export type BetaApplication = typeof betaApplications.$inferSelect;
 export type SignedDocument = typeof signedDocuments.$inferSelect;
 export type DocumentReview = typeof documentReviews.$inferSelect;
+
+// ---- Account invites ----
+
+// One row per invitation to create an account. Created only for an email
+// confirmed through a beta application. The token is single use, expires, and
+// only its SHA-256 is stored. The account is created for `email` and no other.
+export const accountInvites = pgTable(
+  'account_invites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(), // lowercased
+    applicationId: uuid('application_id').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('account_invites_token_hash_idx').on(t.tokenHash), index('account_invites_email_idx').on(t.email)],
+);

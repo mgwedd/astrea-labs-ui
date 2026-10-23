@@ -33,3 +33,19 @@ describe('middleware admin routes', () => {
     expect(getSession).not.toHaveBeenCalled();
   });
 });
+
+describe('middleware account routes', () => {
+  beforeEach(() => getSession.mockReset());
+
+  it('sends a signed-out visitor to sign-in, back to the account page', async () => {
+    getSession.mockResolvedValue(null);
+    const res = await middleware(req('/account'));
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe('https://astrealabs.com/auth/login?returnTo=%2Faccount');
+  });
+  it('leaves the invite landing page public', async () => {
+    const res = await middleware(req('/account/join'));
+    expect(res.status).toBe(200);
+    expect(getSession).not.toHaveBeenCalled();
+  });
+});

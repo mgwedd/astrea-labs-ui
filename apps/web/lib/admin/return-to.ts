@@ -1,9 +1,6 @@
-/** Only `/admin` paths may be a post-login target; anything else falls back to `/admin`. */
-export function safeAdminReturnTo(path: string | null | undefined): string {
-  if (path && /^\/admin(\/[A-Za-z0-9._~-]+)*\/?$/.test(path) && !path.split('/').includes('..')) return path;
-  return '/admin';
-}
+import { loginUrl, safeReturnTo } from '@/lib/auth/return-to';
 
-export function adminLoginUrl(path: string | null | undefined): string {
-  return `/auth/login?returnTo=${encodeURIComponent(safeAdminReturnTo(path))}`;
-}
+/** Only `/admin` paths may be a post-login target; anything else falls back to `/admin`. */
+export const safeAdminReturnTo = (path: string | null | undefined) => safeReturnTo(path, 'admin');
+
+export const adminLoginUrl = (path: string | null | undefined) => loginUrl(path, 'admin');
