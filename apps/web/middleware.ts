@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PROJECT_SUBDOMAINS } from '@astrea/research-registry';
+import { adminLoginUrl } from '@/lib/admin/return-to';
 import { auth0 } from '@/lib/auth0';
 
 export async function middleware(request: NextRequest) {
@@ -46,8 +47,16 @@ export async function middleware(request: NextRequest) {
   }
 
   // Auth0 sign-in routes (/auth/*) and the admin area (session rolling) live on the apex only.
-  if (!hostSubdomain && (url.pathname.startsWith('/auth/') || url.pathname === '/admin' || url.pathname.startsWith('/admin/'))) {
-    return auth0.middleware(request);
+  const isAuthRoute = url.pathname.startsWith('/auth/');
+  const isAdminRoute = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
+  if (!hostSubdomain && (isAuthRoute || isAdminRoute)) {
+    const authResponse = await auth0.middleware(request);
+    // Signed out on an admin page: sign in, then come back to this exact page.
+    if (isAdminRoute && !(await auth0.getSession(request))) {
+      return NextResponse.redirect(new URL(adminLoginUrl(url.pathname), request.url));
+    }
+    authResponse.headers.set('x-astrea-subdomain', 'root');
+    return authResponse;
   }
 
   // A project subdomain's root shows its landing page.

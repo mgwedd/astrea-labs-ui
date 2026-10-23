@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
     '/api/beta/**': pdfFonts,
     '/aletheia/beta/**': pdfFonts,
   },
+  experimental: { authInterrupts: true },
   transpilePackages: ['@astrea/ui', '@astrea/research-registry'],
   images: {
     formats: ['image/avif', 'image/webp'],
