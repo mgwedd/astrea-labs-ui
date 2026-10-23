@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PROJECT_SUBDOMAINS } from '@astrea/research-registry';
-import { adminLoginUrl } from '@/lib/admin/return-to';
+import { gatedArea, loginUrl } from '@/lib/auth/return-to';
 import { auth0 } from '@/lib/auth0';
 
 export async function middleware(request: NextRequest) {
@@ -46,14 +46,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`${url.pathname}${url.search}`, 'https://astrealabs.com'));
   }
 
-  // Auth0 sign-in routes (/auth/*) and the admin area (session rolling) live on the apex only.
+  // Auth0 sign-in routes (/auth/*) and the signed-in areas (session rolling) live on the apex only.
   const isAuthRoute = url.pathname.startsWith('/auth/');
-  const isAdminRoute = url.pathname === '/admin' || url.pathname.startsWith('/admin/');
-  if (!hostSubdomain && (isAuthRoute || isAdminRoute)) {
+  const gated = gatedArea(url.pathname);
+  if (!hostSubdomain && (isAuthRoute || gated)) {
     const authResponse = await auth0.middleware(request);
-    // Signed out on an admin page: sign in, then come back to this exact page.
-    if (isAdminRoute && !(await auth0.getSession(request))) {
-      return NextResponse.redirect(new URL(adminLoginUrl(url.pathname), request.url));
+    // Signed out on a gated page: sign in, then come back to this exact page.
+    if (gated && !(await auth0.getSession(request))) {
+      return NextResponse.redirect(new URL(loginUrl(url.pathname, gated), request.url));
     }
     authResponse.headers.set('x-astrea-subdomain', 'root');
     return authResponse;

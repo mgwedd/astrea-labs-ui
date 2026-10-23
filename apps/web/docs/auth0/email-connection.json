@@ -1,0 +1,16 @@
+{
+  "name": "email",
+  "strategy": "email",
+  "enabled_clients": [],
+  "options": {
+    "name": "email",
+    "from": "Astrea Labs <login@astrealabs.com>",
+    "subject": "Your Astrea Labs sign-in code",
+    "syntax": "liquid",
+    "body": "<p>Your sign-in code is <strong>@@password@@</strong>.</p><p>It expires in 5 minutes. If you did not ask for it, ignore this email.</p>",
+    "authParams": { "scope": "openid email profile", "response_type": "code" },
+    "brute_force_protection": true,
+    "disable_signup": true,
+    "totp": { "time_step": 300, "length": 6 }
+  }
+}

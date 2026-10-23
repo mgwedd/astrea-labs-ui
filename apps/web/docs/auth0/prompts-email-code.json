@@ -1,0 +1,9 @@
+{
+  "login-passwordless-email-code": {
+    "title": "Check your email",
+    "description": "We sent a code to ${email}.",
+    "inputLabel": "Verification code",
+    "resendActionText": "Resend code",
+    "editEmailText": "Use a different email"
+  }
+}

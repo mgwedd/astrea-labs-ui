@@ -5,6 +5,7 @@ import { CircleCheck, Download } from 'lucide-react';
 import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@astrea/ui';
 import { PageHeader } from '@/components/page-header';
 import { InfoTip } from '@/components/beta/info-tip';
+import { CreateAccountOffer } from '@/components/account/create-account-offer';
 import { ResumeCard } from '@/components/beta/resume-card';
 import { SESSION_COOKIE, betaDeps } from '@/lib/beta-access/server';
 import { getSession } from '@/lib/beta-access/service';
@@ -74,6 +75,7 @@ export default async function SignedPage() {
           </Button>
         </CardFooter>
       </Card>
+      {session.application.emailConfirmedAt ? <CreateAccountOffer email={session.application.email} /> : null}
     </div>
   );
 }
