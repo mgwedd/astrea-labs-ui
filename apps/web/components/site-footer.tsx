@@ -20,6 +20,9 @@ export function SiteFooter() {
             </Link>
           ))}
           <Separator orientation="vertical" className="h-4" />
+          <Link href="/feedback" className="hover:text-foreground">
+            Feedback
+          </Link>
           <a href={site.github} target="_blank" rel="noreferrer" className="hover:text-foreground">
             GitHub
           </a>

@@ -50,3 +50,9 @@ logs
 .claude/settings.local.json
 .vercel
 .env*
+!.env.example
+# Local-only notes (never committed)
+*.local.md
+
+# Local beta-access blob store (lib/beta-access/blob.ts)
+.blob-local/

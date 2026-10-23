@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Button, Badge, Card, CardTitle, CodeBlock, Trace, TraceItem } from '@astrea/ui';
+import { Button, Badge, CodeBlock, Trace, TraceItem } from '@astrea/ui';
 
 describe('Astrea UI Components', () => {
   it('renders Button correctly', () => {
