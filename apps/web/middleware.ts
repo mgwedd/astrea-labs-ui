@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PROJECT_SUBDOMAINS } from '@astrea/research-registry';
+import { auth0 } from '@/lib/auth0';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
   const hostname = request.headers.get('host') || '';
 
@@ -42,6 +43,11 @@ export function middleware(request: NextRequest) {
   // On a real project subdomain, everything but the landing page lives on the apex.
   if (hostSubdomain && hostWithoutPort.endsWith('astrealabs.com') && url.pathname !== '/') {
     return NextResponse.redirect(new URL(`${url.pathname}${url.search}`, 'https://astrealabs.com'));
+  }
+
+  // Auth0 sign-in routes (/auth/*) and the admin area (session rolling) live on the apex only.
+  if (!hostSubdomain && (url.pathname.startsWith('/auth/') || url.pathname === '/admin' || url.pathname.startsWith('/admin/'))) {
+    return auth0.middleware(request);
   }
 
   // A project subdomain's root shows its landing page.

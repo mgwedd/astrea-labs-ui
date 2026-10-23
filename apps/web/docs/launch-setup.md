@@ -58,6 +58,24 @@ this by hand: Project → Firewall → Configure → New Rule.
 
 The app keeps its own per-email limits as well; this rule stops one IP flooding the forms.
 
+## 5. Admin sign-in (Auth0)
+
+`/admin` is gated by Auth0 (`@auth0/nextjs-auth0` v4) and an email allowlist. Env var names (set in `.env.local` locally; in Vercel for production, secrets Sensitive):
+
+- `APP_BASE_URL`: the site origin, e.g. `http://localhost:3000` locally, `https://astrealabs.com` in production.
+- `AUTH0_DOMAIN`: the tenant domain (no scheme).
+- `AUTH0_CLIENT_ID`
+- `AUTH0_CLIENT_SECRET`
+- `AUTH0_SECRET`: random 32-byte hex string that encrypts the session cookie (`openssl rand -hex 32`).
+- `ADMIN_EMAILS`: comma-separated emails allowed into `/admin`. The email must also be verified in Auth0.
+
+In the Auth0 application, add the production URLs next to the localhost ones:
+
+- Allowed Callback URLs: `https://astrealabs.com/auth/callback`
+- Allowed Logout URLs: `https://astrealabs.com/`
+
+Recommended: disable sign-ups on the database connection (Authentication > Database > Settings > Disable Sign Ups) so only invited users can authenticate. The allowlist is still the actual gate.
+
 ## Already tracked elsewhere
 
 - Email (Resend domain, `RESEND_API_KEY`, `LICENSE_EMAIL_FROM`): mgwedd/astrea-labs-ui#6.
