@@ -5,6 +5,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { MDXRemote } from 'next-mdx-remote/rsc';
 import { getProject } from '@astrea/research-registry';
 import { Badge, Button, Card, CardDescription, CardHeader, CardTitle, Separator } from '@astrea/ui';
+import { mdxComponents } from '@/components/media/mdx';
 import { formatDate, getPost, getPosts } from '@/lib/writing';
 import { site } from '@/lib/site';
 
@@ -54,7 +55,7 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
       </header>
       <Separator />
       <div className="prose prose-neutral max-w-none pt-8 dark:prose-invert prose-headings:tracking-tight prose-a:underline-offset-4">
-        <MDXRemote source={post.body} />
+        <MDXRemote source={post.body} components={mdxComponents} />
       </div>
       {project && (
         <Link href={`/projects/${project.slug}`} className="group mt-12 block">
