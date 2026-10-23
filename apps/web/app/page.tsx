@@ -6,10 +6,10 @@ import { ProjectCard } from '@/components/project-card';
 import { ReleaseTicker } from '@/components/release-ticker';
 import { SectionHeading } from '@/components/page-header';
 import { formatDate, getPosts } from '@/lib/writing';
+import { homepageAnnouncement } from '@/flags';
 
-export const revalidate = 3600;
-
-export default function HomePage() {
+export default async function HomePage() {
+  const showAnnouncement = await homepageAnnouncement();
   const featured = featuredProjects();
   const posts = getPosts().slice(0, 3);
   const merged = contributions.filter((c) => c.state === 'merged');
@@ -18,23 +18,25 @@ export default function HomePage() {
     <div className="container">
       <section className="grid gap-10 pb-16 pt-14 md:grid-cols-[1fr_18rem] md:pt-20 lg:grid-cols-[1fr_20rem]">
         <div className="flex flex-col items-start gap-6">
-          <Link
-            href="/projects/aletheia"
-            className="group inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Badge className="rounded-full px-2 py-0">New</Badge>
-            Aletheia is in public beta
-            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-          </Link>
+          {showAnnouncement && (
+            <Link
+              href="/projects/aletheia"
+              className="group inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Badge className="rounded-full px-2 py-0">New</Badge>
+              Aletheia is in public beta
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          )}
           <h1 className="max-w-2xl text-balance text-4xl font-extrabold tracking-tight md:text-5xl">
-            AI research lab focused on embedded systems.
+            AI research in embedded systems
           </h1>
           <p className="max-w-xl text-pretty text-lg text-muted-foreground">
             Astrea Labs builds tools that run on your own hardware and keep your data there.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/projects">Browse projects</Link>
+              <Link href="/projects">Projects</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/downloads">Downloads</Link>
@@ -71,7 +73,7 @@ export default function HomePage() {
             action={
               <Button variant="link" className="px-0" asChild>
                 <Link href="/writing">
-                  All writing <ArrowRight />
+                  Blog <ArrowRight />
                 </Link>
               </Button>
             }
@@ -95,7 +97,7 @@ export default function HomePage() {
             action={
               <Button variant="link" className="px-0" asChild>
                 <Link href="/research#upstream">
-                  All contributions <ArrowRight />
+                  Contributions <ArrowRight />
                 </Link>
               </Button>
             }
