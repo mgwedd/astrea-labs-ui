@@ -52,7 +52,7 @@ export function ApplicantPrivacyNotice() {
       <div className="flex flex-col gap-2">
         <h3 className="font-medium text-foreground">Who sees it</h3>
         <p>
-          Michael Wedd only, behind strong authentication. It&apos;s excluded from analytics, and these pages carry no
+          Astrea Labs staff only, behind strong authentication. It&apos;s excluded from analytics, and these pages carry no
           third-party trackers: no ad pixels and no session replay. Vercel hosts this site, the signing service and the
           stored documents; Neon hosts the database; Resend sends our email. They act as our service providers. The
           form uses Vercel BotID to check your browser when you submit.

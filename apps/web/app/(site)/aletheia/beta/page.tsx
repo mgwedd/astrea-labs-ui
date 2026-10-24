@@ -16,7 +16,7 @@ const STEPS = [
   { title: 'Apply', body: 'Tell us about you and your practice, read how Aletheia handles patient information, and tick each attestation.' },
   { title: 'Confirm your email', body: 'We email you a link. It works once and expires in 7 days.' },
   { title: 'Sign', body: 'Review the document generated from your answers and sign it on this site. You can download your signed copy.' },
-  { title: 'Review', body: 'Michael reviews your application and checks your license.' },
+  { title: 'Review', body: 'Astrea Labs reviews your application and checks your license.' },
   { title: 'Get your key', body: 'If you’re approved, we email you a single-use link to your license key and the download.' },
 ];
 
