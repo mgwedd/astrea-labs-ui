@@ -22,3 +22,11 @@ export async function provisionAccount(email: string): Promise<void> {
   if (existing.some((u) => u.identities?.some((i) => i.connection === c.connection))) return;
   await mgmt.users.create({ connection: c.connection, email, email_verified: true, app_metadata: { invited: true } });
 }
+
+/** The email on an Auth0 user, if Auth0 has verified it. Used to resolve a bearer token's `sub`. */
+export async function verifiedEmailFor(sub: string): Promise<string | undefined> {
+  const c = config();
+  const mgmt = new ManagementClient({ domain: c.domain, clientId: c.clientId, clientSecret: c.clientSecret });
+  const user = await mgmt.users.get(sub);
+  return user.email && user.email_verified ? user.email.toLowerCase() : undefined;
+}

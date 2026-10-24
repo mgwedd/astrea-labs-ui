@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { desc, eq } from 'drizzle-orm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@astrea/ui';
 import { PageHeader } from '@/components/page-header';
 import { requireUser } from '@/lib/auth/gate';
-import { getDb } from '@/lib/licensing/db/client';
-import { betaApplications, licenses } from '@/lib/licensing/db/schema';
+import { getAccountRecords, licenseStatus } from '@/lib/accounts/summary';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Your account', robots: { index: false, follow: false } };
@@ -15,14 +13,7 @@ const date = (d: Date | null) => (d ? d.toLocaleDateString('en-US', { year: 'num
 export default async function AccountPage() {
   const user = await requireUser();
   const email = user.email.toLowerCase();
-  const db = getDb();
-  const [mine, applications] = await Promise.all([
-    db.select().from(licenses).where(eq(licenses.email, email)).orderBy(desc(licenses.issuedAt)),
-    db.select().from(betaApplications).where(eq(betaApplications.email, email)).orderBy(desc(betaApplications.createdAt)),
-  ]);
-  const now = new Date();
-  const licenseStatus = (l: (typeof mine)[number]) =>
-    l.revokedAt ? 'Revoked' : l.replacedBy ? 'Replaced' : l.expiresAt && l.expiresAt <= now ? 'Expired' : 'Active';
+  const { licenses: mine, applications } = await getAccountRecords(email);
 
   return (
     <div className="container max-w-2xl pb-16">

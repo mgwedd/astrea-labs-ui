@@ -13,25 +13,22 @@ import {
   Separator,
 } from '@astrea/ui';
 import { GitHubMark } from '@/components/logo';
+import { PageActions } from '@/components/page-actions';
 import { PageHeader } from '@/components/page-header';
+import { markdownAlternates } from '@/lib/markdown-route';
 import { site } from '@/lib/site';
 
-export const metadata: Metadata = { title: 'About', description: site.description };
+export const metadata: Metadata = { title: 'About', description: site.description, alternates: markdownAlternates('/about') };
 
 export default function AboutPage() {
   return (
     <div className="container max-w-3xl pb-16">
-      <PageHeader eyebrow="About" title="A small, independent lab">
-        {site.legalName} is Michael and Christopher Wedd. We work and experiment together across AI research,
-        autonomous systems and security.
+      <PageHeader eyebrow="About" title={site.about.title} actions={<PageActions path="/about" />}>
+        {site.about.intro}
       </PageHeader>
 
       <div className="prose prose-neutral max-w-none dark:prose-invert">
-        <p>
-          The common thread is control: tools that run on hardware you own, keep data where it was created, and are
-          specified carefully enough to trust. That shows up as on-device clinical AI, from-scratch model training,
-          orbital tracking, and agent tooling with a single credentialed gate.
-        </p>
+        <p>{site.about.body}</p>
       </div>
 
       <Separator className="my-12" />
