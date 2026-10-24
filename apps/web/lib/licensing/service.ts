@@ -12,7 +12,7 @@ import { signLicense, signRevocations, type LicensePayload, type SigningKey } fr
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 // Spec G: about 30 days before expiry, ahead of the app's own 14-day warning.
-// TODO(spec G): C2 re-attestation on renewal. Follow-up.
+// A renewed key is shown only after the licensee confirms C2 again (see revealKeyLink).
 export const RENEWAL_WINDOW_DAYS = 30;
 export const KEY_LINK_TTL_DAYS = 7;
 /** Default license length when the caller doesn't pass an expiry. */
@@ -92,6 +92,7 @@ export async function issueLicense(
   email: string,
   updatesOptIn: boolean,
   expiresAt?: Date | null,
+  opts: { attestationRequired?: boolean } = {},
 ): Promise<License> {
   const now = deps.now?.() ?? new Date();
   const issuedAt = wholeSeconds(now);
@@ -105,6 +106,7 @@ export async function issueLicense(
       kid: deps.key.kid,
       issuedAt,
       expiresAt: expiresAt && wholeSeconds(expiresAt),
+      attestationRequired: opts.attestationRequired ?? false,
     })
     .returning();
   return row;
@@ -159,14 +161,21 @@ export async function sendKeyLink(
 
 export type KeyReveal =
   | { ok: true; token: string; license: License; applicationId: string | null }
-  | { ok: false; reason: 'used' | 'expired' | 'invalid' };
+  | { ok: false; reason: 'used' | 'expired' | 'invalid' | 'attestation_required' | 'attestation_invalid' };
+
+/** Records the licensee's re-attestation for a license. Returns false if the attestation is invalid. */
+export type Attest = (license: License) => Promise<boolean>;
 
 /**
  * Shows a key once. The link is consumed by a conditional UPDATE, so two
  * concurrent requests can't both see the key. A link to a revoked or replaced
  * license, or one signed with a retired key, is refused before it is consumed.
+ *
+ * A license that needs re-attestation (a renewal) is shown only once `attest`
+ * records it. Without `attest` the answer is 'attestation_required' and the
+ * link stays unused, so the page can ask and try again.
  */
-export async function revealKeyLink(deps: Deps, token: string): Promise<KeyReveal> {
+export async function revealKeyLink(deps: Deps, token: string, attest?: Attest): Promise<KeyReveal> {
   if (!looksLikeLinkToken(token)) return { ok: false, reason: 'invalid' };
   const now = deps.now?.() ?? new Date();
   const hash = hashLinkToken(token);
@@ -180,6 +189,15 @@ export async function revealKeyLink(deps: Deps, token: string): Promise<KeyRevea
     return { ok: false, reason: 'invalid' };
   }
   if (license.expiresAt && license.expiresAt <= now) return { ok: false, reason: 'expired' };
+
+  if (license.attestationRequired && !license.attestedAt) {
+    if (!attest) return { ok: false, reason: 'attestation_required' };
+    if (!(await attest(license))) return { ok: false, reason: 'attestation_invalid' };
+    await deps.db
+      .update(licenses)
+      .set({ attestedAt: now })
+      .where(and(eq(licenses.lid, license.lid), isNull(licenses.attestedAt)));
+  }
 
   const [won] = await deps.db
     .update(keyLinks)
@@ -280,16 +298,20 @@ async function chainFrom(deps: Pick<Deps, 'db'>, lid: string): Promise<License[]
 
 /**
  * Revokes a license and every license that replaced it, so revoking an old lid
- * also kills its renewal. Returns the license asked for, or undefined if it
- * doesn't exist or was already revoked.
+ * also kills its renewal. `by` records who revoked it. Returns the license
+ * asked for, or undefined if it doesn't exist or was already revoked.
  */
-// TODO(spec E): store who revoked (and un-revocations). No column for it yet.
-export async function revokeLicense(deps: Pick<Deps, 'db' | 'now'>, lid: string, reason: string): Promise<License | undefined> {
+export async function revokeLicense(
+  deps: Pick<Deps, 'db' | 'now'>,
+  lid: string,
+  reason: string,
+  by: string,
+): Promise<License | undefined> {
   const chain = await chainFrom(deps, lid);
   if (!chain.length || chain.every((l) => l.revokedAt)) return undefined;
   const rows = await deps.db
     .update(licenses)
-    .set({ revokedAt: deps.now?.() ?? new Date(), revokedReason: reason })
+    .set({ revokedAt: deps.now?.() ?? new Date(), revokedReason: reason, revokedBy: by })
     .where(and(inArray(licenses.lid, chain.map((l) => l.lid)), isNull(licenses.revokedAt)))
     .returning();
   return rows.find((r) => r.lid === lid) ?? rows[0];
@@ -305,6 +327,9 @@ export async function revokeLicense(deps: Pick<Deps, 'db' | 'now'>, lid: string,
  * from now.
  * The old row is only updated after the email is sent, so a failed send
  * leaves it due for the next renewal run.
+ *
+ * A renewal needs re-attestation before its key is shown. A reissue keeps an
+ * outstanding re-attestation, so it can't be used to skip one.
  */
 export async function reissueLicense(
   deps: Deps,
@@ -312,6 +337,8 @@ export async function reissueLicense(
   opts: {
     revokeOld?: boolean;
     reason?: string;
+    /** Who revoked the old license; recorded when revokeOld is set. */
+    by?: string;
     kind?: 'reissue' | 'renewal';
     updatesOptIn?: boolean;
     expiresAt?: Date | null;
@@ -325,7 +352,10 @@ export async function reissueLicense(
     opts.expiresAt !== undefined
       ? opts.expiresAt
       : old.expiresAt && new Date(now.getTime() + (old.expiresAt.getTime() - old.issuedAt.getTime()));
-  const created = await issueLicense(deps, old.email, old.updatesOptIn || opts.updatesOptIn === true, expiresAt);
+  const attestationRequired = opts.kind === 'renewal' || (old.attestationRequired && !old.attestedAt);
+  const created = await issueLicense(deps, old.email, old.updatesOptIn || opts.updatesOptIn === true, expiresAt, {
+    attestationRequired,
+  });
   // Point the application (if any) at the new lid so its key page links the signed copy.
   const [app] = await deps.db
     .select({ id: betaApplications.id })
@@ -346,7 +376,7 @@ export async function reissueLicense(
       replacedBy: created.lid,
       ...(opts.kind === 'renewal' ? { renewalSentAt: deps.now?.() ?? new Date() } : {}),
       ...(opts.revokeOld && !old.revokedAt
-        ? { revokedAt: deps.now?.() ?? new Date(), revokedReason: opts.reason ?? 'reissued' }
+        ? { revokedAt: deps.now?.() ?? new Date(), revokedReason: opts.reason ?? 'reissued', revokedBy: opts.by ?? null }
         : {}),
     })
     .where(eq(licenses.lid, old.lid));

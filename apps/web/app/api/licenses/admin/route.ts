@@ -8,8 +8,9 @@ import { normalizeEmail, reissueLicense, revokeLicense } from '@/lib/licensing/s
 
 // Admin API, authorized with "Authorization: Bearer $LICENSE_ADMIN_TOKEN".
 //   POST {"action":"list","email"}                         list licenses for an address
-//   POST {"action":"revoke","lid","reason"}                 revoke a license
-//   POST {"action":"reissue","lid","revokeOld"?,"reason"?,"expiresAt"?}  email a key link for a replacement
+//   POST {"action":"revoke","lid","reason","by"}            revoke a license; "by" records who did it
+//   POST {"action":"reissue","lid","revokeOld"?,"reason"?,"by"?,"expiresAt"?}  email a key link for a replacement
+//        "by" is required when revokeOld is true.
 //        expiresAt: ISO 8601 date-time for an expiring license, or null for one
 //        that never expires. Omitted: keep the old license's policy.
 //   POST {"action":"applications","status"?}               list beta applications (draft|submitted|approved|declined)
@@ -35,14 +36,17 @@ const Review = {
   notes: z.string().max(2000).optional(),
 };
 
+const Revoker = z.string().min(1).max(200);
+
 const Action = z.discriminatedUnion('action', [
   z.object({ action: z.literal('list'), email: z.email() }),
-  z.object({ action: z.literal('revoke'), lid: z.uuid(), reason: z.string().min(1).max(200) }),
+  z.object({ action: z.literal('revoke'), lid: z.uuid(), reason: z.string().min(1).max(200), by: Revoker }),
   z.object({
     action: z.literal('reissue'),
     lid: z.uuid(),
     revokeOld: z.boolean().default(false),
     reason: z.string().max(200).optional(),
+    by: Revoker.optional(),
     expiresAt: z.iso
       .datetime({ offset: true })
       .transform((s) => new Date(s))
@@ -109,13 +113,16 @@ async function handle(request: Request, input: z.infer<typeof Action>): Promise<
     }
     case 'revoke':
     case 'reissue': {
-      // TODO(spec E): record who revoked. No column for it yet.
+      if (input.action === 'reissue' && input.revokeOld && !input.by) {
+        return Response.json({ error: '"by" is required when revokeOld is true.' }, { status: 400, headers });
+      }
       const row =
         input.action === 'revoke'
-          ? await revokeLicense(deps, input.lid, input.reason)
+          ? await revokeLicense(deps, input.lid, input.reason, input.by)
           : await reissueLicense(deps, input.lid, {
               revokeOld: input.revokeOld,
               reason: input.reason,
+              by: input.by,
               expiresAt: input.expiresAt,
             });
       if (!row) return Response.json({ error: 'No such license (or already revoked).' }, { status: 404, headers });

@@ -21,7 +21,7 @@ const INTROS: Record<KeyLinkKind, string> = {
   'key-link': 'You asked for your Aletheia license again. Open the link below to see your license key.',
   reissue: 'We have issued you a new Aletheia license. Open the link below to see it, and use it from now on.',
   renewal:
-    'Your Aletheia beta license ends soon, so we have renewed it. Open the link below to see the renewed key, then paste it into Aletheia in Settings → License key before the old one ends.',
+    'Your Aletheia beta license ends soon. To renew it, open the link below and confirm that your professional license is still active and unrestricted. You will then see your renewed key: paste it into Aletheia in Settings → License key before the old one ends. If you don’t confirm, your current key ends on its usual date.',
 };
 
 export const escapeHtml = (s: string) =>
@@ -39,7 +39,6 @@ export function keyLinkEmail(input: {
   kind: KeyLinkKind;
 }): Omit<Mail, 'to'> {
   const linkNote = `The link works once and expires on ${longDate(input.linkExpiresAt)}. Don't forward this email.`;
-  // TODO(spec G): C2 re-attestation on renewal.
   const validity = input.licenseExpiresAt
     ? `This license is valid until ${longDate(input.licenseExpiresAt)}. We will email you a renewed one about 30 days before then.`
     : 'This license does not expire.';

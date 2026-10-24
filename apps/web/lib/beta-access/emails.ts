@@ -37,13 +37,19 @@ export function receivedEmail(): Omit<Mail, 'to'> {
   return { subject: 'We received your Aletheia beta application', text, html };
 }
 
-/** A short, neutral decline. */
-export function declineEmail(): Omit<Mail, 'to'> {
+/** Where applicants ask for their application record to be deleted. */
+export const DELETION_EMAIL = 'support@astrealabs.com';
+
+/** A short, neutral decline, with when to reapply and how to ask for deletion. */
+export function declineEmail(input: { reapplyAfter: Date }): Omit<Mail, 'to'> {
   const intro =
     "Thank you for applying for the Aletheia beta. We aren't able to offer you a place in the beta at this time.";
-  // TODO: say whether and how to reapply, and how to ask for the record to be deleted (spec appendix Q14).
-  const text = [intro, '', '— Astrea Labs'].join('\n');
-  const html = page(`<p>${escapeHtml(intro)}</p>`);
+  const reapply = `You can apply again from ${longDate(input.reapplyAfter)}.`;
+  const deletion = `To ask us to delete your application record, email ${DELETION_EMAIL}.`;
+  const text = [intro, '', reapply, '', deletion, '', '— Astrea Labs'].join('\n');
+  const html = page(`<p>${escapeHtml(intro)}</p>
+<p>${escapeHtml(reapply)}</p>
+<p>To ask us to delete your application record, email <a href="mailto:${DELETION_EMAIL}">${DELETION_EMAIL}</a>.</p>`);
   return { subject: 'Your Aletheia beta application', text, html };
 }
 
