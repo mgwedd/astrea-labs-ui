@@ -14,6 +14,12 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
   Separator,
   Table,
   TableBody,
@@ -136,10 +142,14 @@ export async function ProjectDetail({ project }: { project: Project }) {
             <h2 className="mb-4 mt-10 text-lg font-semibold">Highlights</h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {project.highlights.map((h) => (
-                <li key={h} className="flex gap-3 rounded-lg border p-4 text-sm">
-                  <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                  {h}
-                </li>
+                <Item key={h} variant="outline" asChild>
+                  <li>
+                    <ItemMedia className="self-start text-muted-foreground">
+                      <Check className="mt-0.5 size-4" />
+                    </ItemMedia>
+                    <ItemContent>{h}</ItemContent>
+                  </li>
+                </Item>
               ))}
             </ul>
           </TabsContent>
@@ -191,19 +201,17 @@ export async function ProjectDetail({ project }: { project: Project }) {
           {notes.length > 0 && (
             <TabsContent value="notes" className="mt-6 flex flex-col gap-3">
               {notes.map((n) => (
-                <a
-                  key={n.url}
-                  href={n.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group flex items-start justify-between gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/40"
-                >
-                  <span className="flex flex-col gap-1">
-                    <span className="font-medium">{n.title}</span>
-                    <span className="text-sm text-muted-foreground">{n.summary}</span>
-                  </span>
-                  <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
-                </a>
+                <Item key={n.url} variant="outline" asChild>
+                  <a href={n.url} target="_blank" rel="noreferrer">
+                    <ItemContent>
+                      <ItemTitle>{n.title}</ItemTitle>
+                      <ItemDescription className="line-clamp-none">{n.summary}</ItemDescription>
+                    </ItemContent>
+                    <ItemActions className="self-start text-muted-foreground">
+                      <ArrowUpRight className="size-4" />
+                    </ItemActions>
+                  </a>
+                </Item>
               ))}
             </TabsContent>
           )}

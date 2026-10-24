@@ -23,7 +23,7 @@ export default async function HomePage() {
               href="/projects/aletheia"
               className="group inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Badge className="rounded-full px-2 py-0">New</Badge>
+              <Badge className="px-2 py-0">New</Badge>
               Aletheia is in public beta
               <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>

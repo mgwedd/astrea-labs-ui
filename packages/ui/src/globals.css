@@ -81,6 +81,15 @@
   * {
     @apply border-border;
   }
+  /* Always reserve the scrollbar's space, so pages don't jump sideways when
+     moving between a short page and a long one. */
+  html {
+    scrollbar-gutter: stable;
+  }
+  /* The gutter already covers the scrollbar, so dialog scroll locks must not add a margin too. */
+  html body[data-scroll-locked] {
+    margin-right: 0 !important;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
