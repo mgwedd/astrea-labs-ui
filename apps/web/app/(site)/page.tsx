@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight, ArrowUpRight, GitMerge } from 'lucide-react';
 import { contributions, DOMAINS, featuredProjects, projects } from '@astrea/research-registry';
@@ -7,6 +8,9 @@ import { ReleaseTicker } from '@/components/release-ticker';
 import { SectionHeading } from '@/components/page-header';
 import { formatDate, getPosts } from '@/lib/writing';
 import { homepageAnnouncement } from '@/flags';
+import { markdownAlternates } from '@/lib/markdown-route';
+
+export const metadata: Metadata = { alternates: markdownAlternates('/') };
 
 export default async function HomePage() {
   const showAnnouncement = await homepageAnnouncement();

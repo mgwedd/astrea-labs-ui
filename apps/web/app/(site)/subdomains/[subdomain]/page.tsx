@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getProjectBySubdomain, PROJECT_SUBDOMAINS } from '@astrea/research-registry';
 import { ProjectDetail } from '@/components/project-detail';
+import { markdownAlternates } from '@/lib/markdown-route';
 
 export const revalidate = 3600;
 export const dynamicParams = false;
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ subdomain
   return {
     title: { absolute: `${project.name} · Astrea Labs` },
     description: project.tagline,
-    alternates: { canonical: `/projects/${project.slug}` },
+    alternates: { ...markdownAlternates(`/projects/${project.slug}`), canonical: `/projects/${project.slug}` },
   };
 }
 

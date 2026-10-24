@@ -3,12 +3,15 @@ import { ArrowUpRight, FileText, GitMerge, GitPullRequest } from 'lucide-react';
 import { contributions, getProject, PUBLICATIONS, technicalNotes } from '@astrea/research-registry';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Empty, Separator } from '@astrea/ui';
 import { CiteButton } from '@/components/cite-button';
+import { PageActions } from '@/components/page-actions';
 import { PageHeader, SectionHeading } from '@/components/page-header';
+import { markdownAlternates } from '@/lib/markdown-route';
 import { formatDate } from '@/lib/writing';
 
 export const metadata: Metadata = {
   title: 'Research',
   description: 'Papers, design documents and upstream contributions from Astrea Labs.',
+  alternates: markdownAlternates('/research'),
 };
 
 export default function ResearchPage() {
@@ -18,7 +21,7 @@ export default function ResearchPage() {
 
   return (
     <div className="container pb-16">
-      <PageHeader eyebrow="Research" title="Papers, notes and upstream work" />
+      <PageHeader eyebrow="Research" title="Papers, notes and upstream work" actions={<PageActions path="/research" />} />
 
       <section id="papers" className="scroll-mt-24">
         <SectionHeading title="Papers" />

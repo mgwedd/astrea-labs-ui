@@ -2,16 +2,18 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { NotebookPen } from 'lucide-react';
 import { Badge, Empty, Separator } from '@astrea/ui';
+import { PageActions } from '@/components/page-actions';
 import { PageHeader } from '@/components/page-header';
+import { markdownAlternates } from '@/lib/markdown-route';
 import { formatDate, getPosts } from '@/lib/writing';
 
-export const metadata: Metadata = { title: 'Writing', description: 'Notes, release write-ups and essays from Astrea Labs.' };
+export const metadata: Metadata = { title: 'Writing', description: 'Notes, release write-ups and essays from Astrea Labs.', alternates: markdownAlternates('/writing') };
 
 export default function WritingPage() {
   const posts = getPosts();
   return (
     <div className="container max-w-3xl">
-      <PageHeader eyebrow="Writing" title="Notes from the lab" />
+      <PageHeader eyebrow="Writing" title="Notes from the lab" actions={<PageActions path="/writing" />} />
       {posts.length === 0 ? (
         <Empty icon={NotebookPen} title="Nothing published yet" description="Posts will appear here." className="mb-16" />
       ) : (

@@ -6,6 +6,8 @@ import { MDXRemote } from 'next-mdx-remote/rsc';
 import { getProject } from '@astrea/research-registry';
 import { Badge, Button, Card, CardDescription, CardHeader, CardTitle, Separator } from '@astrea/ui';
 import { mdxComponents } from '@/components/media/mdx';
+import { PageActions } from '@/components/page-actions';
+import { markdownAlternates } from '@/lib/markdown-route';
 import { formatDate, getPost, getPosts } from '@/lib/writing';
 import { site } from '@/lib/site';
 
@@ -22,6 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: post.title,
     description: post.summary,
     openGraph: { type: 'article', publishedTime: post.date, authors: [site.founder] },
+    alternates: markdownAlternates(`/writing/${post.slug}`),
   };
 }
 
@@ -32,11 +35,14 @@ export default async function PostPage({ params }: { params: Promise<{ slug: str
 
   return (
     <article className="container max-w-3xl pb-16">
-      <Button variant="ghost" size="sm" className="-ml-3 mt-8" asChild>
-        <Link href="/writing">
-          <ArrowLeft /> Writing
-        </Link>
-      </Button>
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+        <Button variant="ghost" size="sm" className="-ml-3" asChild>
+          <Link href="/writing">
+            <ArrowLeft /> Writing
+          </Link>
+        </Button>
+        <PageActions path={`/writing/${post.slug}`} />
+      </div>
       <header className="flex flex-col gap-4 pb-8 pt-6">
         <span className="flex items-center gap-3 font-mono text-xs text-muted-foreground">
           <time dateTime={post.date}>{formatDate(post.date)}</time>

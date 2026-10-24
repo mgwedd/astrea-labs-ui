@@ -26,10 +26,13 @@ import {
   TabsList,
   TabsTrigger,
 } from '@astrea/ui';
+import { agentSetupPrompt } from '@/lib/agent-prompt';
 import { getLatestRelease, formatBytes } from '@/lib/releases';
 import { formatDate } from '@/lib/writing';
+import { AgentSetupCard } from './agent-setup-card';
 import { GitHubMark } from './logo';
 import { Media } from './media/media';
+import { PageActions } from './page-actions';
 import { ProjectStatusBadge } from './project-status';
 
 export const PLATFORM_LABEL: Record<Platform, string> = {
@@ -48,19 +51,22 @@ export async function ProjectDetail({ project }: { project: Project }) {
 
   return (
     <div className="container">
-      <Breadcrumb className="pt-8">
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/projects">Projects</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{project.name}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-8">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/projects">Projects</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>{project.name}</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <PageActions path={`/projects/${project.slug}`} />
+      </div>
 
       <header className="flex flex-col gap-4 pb-10 pt-8">
         <div className="flex flex-wrap items-center gap-2">
@@ -209,7 +215,7 @@ export async function ProjectDetail({ project }: { project: Project }) {
           )}
         </Tabs>
 
-        <aside>
+        <aside className="flex flex-col gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium">Details</CardTitle>
@@ -248,6 +254,7 @@ export async function ProjectDetail({ project }: { project: Project }) {
               )}
             </CardContent>
           </Card>
+          <AgentSetupCard name={project.name} prompt={agentSetupPrompt(project)} />
         </aside>
       </div>
     </div>
