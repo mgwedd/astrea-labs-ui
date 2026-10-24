@@ -7,3 +7,4 @@ allowBuilds:
 overrides:
   postcss: ^8.5.31
   postcss-selector-parser: ^7.1.7
+  zod: ^4.6.6
