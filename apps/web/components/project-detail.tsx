@@ -76,7 +76,7 @@ export async function ProjectDetail({ project }: { project: Project }) {
         <div className="flex flex-wrap gap-3 pt-2">
           {primaryDownload && (
             <Button asChild>
-              <Link href="/downloads">
+              <Link href={project.slug === 'aletheia' ? '/aletheia/download' : '/downloads'}>
                 <Download /> Download
                 {release && <span className="font-mono text-xs opacity-70">{release.tag}</span>}
               </Link>
