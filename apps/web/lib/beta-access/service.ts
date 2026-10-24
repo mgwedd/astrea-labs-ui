@@ -43,7 +43,8 @@ import { buildUnsignedPdf } from '../agreements/signed/pdf';
 import type { Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
-import { ALETHEIA_BETA, OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY } from './content';
+import { acceptAgreement, type Db as AgreementsDb } from '../agreements/service';
+import { ALETHEIA_BETA, ALETHEIA_RENEWAL, OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY } from './content';
 import { declineEmail, receivedEmail, reviewEmail, signLinkEmail } from './emails';
 import { consentRecords, sha256Hex } from './hash';
 
@@ -92,6 +93,9 @@ function parseIso(s: string): Date | null {
 
 // ---------------------------------------------------------------- apply
 
+/** A declined applicant may apply again this many months after the decline. */
+export const REAPPLY_AFTER_MONTHS = 3;
+
 export type ApplyOutcome = 'sent' | 'exists' | 'rate_limited' | { invalid: string };
 
 /**
@@ -135,8 +139,10 @@ const resetDraft = {
 
 /**
  * A new application, or new answers for an address whose latest application
- * is still a draft. An address whose application was already submitted,
- * approved or declined gets nothing new ('exists'); the route answers 202
+ * is still a draft. An address whose application was already submitted or
+ * approved gets nothing new ('exists'), and so does one declined less than
+ * REAPPLY_AFTER_MONTHS ago. After that a declined address may apply again
+ * as a new application. The route answers 202
  * either way, so the response doesn't reveal which addresses have applied.
  * Input must already have passed applicationInputSchema.
  */
@@ -154,7 +160,8 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
     .where(eq(betaApplications.email, email))
     .orderBy(desc(betaApplications.createdAt))
     .limit(1);
-  if (latest && latest.status !== 'draft') return 'exists';
+  if (latest && latest.status !== 'draft' && !(await mayReapply(deps, latest, now))) return 'exists';
+  const draft = latest?.status === 'draft' ? latest : undefined;
 
   const token = newLinkToken();
   const expiresAt = new Date(now.getTime() + SIGN_LINK_TTL_MS);
@@ -166,20 +173,32 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
     signLinkExpiresAt: expiresAt,
     ...resetDraft,
   };
-  if (latest) {
+  if (draft) {
     // Guarded: a sign that lands between the read and this write must not be overwritten.
     const [updated] = await deps.db
       .update(betaApplications)
       .set(values)
-      .where(and(eq(betaApplications.id, latest.id), eq(betaApplications.status, 'draft'), isNull(betaApplications.documentId)))
+      .where(and(eq(betaApplications.id, draft.id), eq(betaApplications.status, 'draft'), isNull(betaApplications.documentId)))
       .returning({ id: betaApplications.id });
     if (!updated) return 'exists';
-    await tryDelete(deps.blob, [latest.draftPdfPath]);
+    await tryDelete(deps.blob, [draft.draftPdfPath]);
   } else {
     await deps.db.insert(betaApplications).values({ id: randomUUID(), email, status: 'draft', createdAt: now, ...values });
   }
   await sendSignLink(deps, email, token, expiresAt, false);
   return 'sent';
+}
+
+/** A declined application whose latest decline is at least REAPPLY_AFTER_MONTHS old. */
+async function mayReapply(deps: BetaDeps, app: BetaApplication, now: Date): Promise<boolean> {
+  if (app.status !== 'declined') return false;
+  const [last] = await deps.db
+    .select({ decidedAt: documentReviews.decidedAt })
+    .from(documentReviews)
+    .where(and(eq(documentReviews.applicationId, app.id), eq(documentReviews.decision, 'declined')))
+    .orderBy(desc(documentReviews.decidedAt))
+    .limit(1);
+  return !!last && addMonths(last.decidedAt, REAPPLY_AFTER_MONTHS) <= now;
 }
 
 /**
@@ -507,11 +526,44 @@ export type KeyResult =
       /** A 1h session for the signed document, when there is one. */
       session: { token: string; expiresAt: Date } | null;
     }
-  | { ok: false; reason: 'used' | 'expired' | 'invalid' };
+  | { ok: false; reason: 'used' | 'expired' | 'invalid' | 'attestation_required' | 'attestation_invalid' };
 
-/** Reveals the key behind a key link once, and opens a 1h session for the signed copy if there is one. */
-export async function revealKey(deps: BetaDeps, token: string): Promise<KeyResult> {
-  const r = await revealKeyLink(deps, token);
+/** The licensee's renewed C2 confirmation, as the key page sends it. */
+export type RenewalAttestation = {
+  version: string;
+  shownAt: string;
+  tickedAt: Record<string, string>;
+  sentAt?: string;
+};
+
+/**
+ * Reveals the key behind a key link once, and opens a 1h session for the signed copy if there is one.
+ * A renewed license needs `attestation` (C2 again); without it the answer is
+ * 'attestation_required' and the link stays unused.
+ */
+export async function revealKey(
+  deps: BetaDeps,
+  token: string,
+  attestation?: RenewalAttestation,
+  meta?: RequestMeta,
+): Promise<KeyResult> {
+  const attest = attestation
+    ? async (license: { email: string }) => {
+        const r = await acceptAgreement(
+          { db: deps.db as unknown as AgreementsDb, now: deps.now },
+          {
+            definition: ALETHEIA_RENEWAL,
+            ...attestation,
+            // The emailed link proves the address.
+            subject: license.email,
+            subjectVerified: true,
+            meta,
+          },
+        );
+        return r.ok;
+      }
+    : undefined;
+  const r = await revealKeyLink(deps, token, attest);
   if (!r.ok) return r;
   let session: { token: string; expiresAt: Date } | null = null;
   if (r.applicationId) {
@@ -649,7 +701,7 @@ export async function decline(deps: BetaDeps, input: ReviewInput): Promise<Revie
   }
   let emailed = true;
   try {
-    await deps.mailer.send({ to: app.email, ...declineEmail() });
+    await deps.mailer.send({ to: app.email, ...declineEmail({ reapplyAfter: addMonths(now, REAPPLY_AFTER_MONTHS) }) });
     await deps.db.insert(emailSends).values({ email: app.email, kind: 'decline', sentAt: now });
   } catch (err) {
     console.error('beta decline email failed', errType(err));

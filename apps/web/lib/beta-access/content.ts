@@ -194,6 +194,17 @@ export const ALETHEIA_BETA = defineAgreement({
   },
 });
 
+// Renewal: the licensee confirms C2 again before a renewed key is shown (spec G).
+// A simple accept recorded against the license email.
+export const ALETHEIA_RENEWAL = defineAgreement({
+  id: "aletheia-beta-renewal",
+  version: DOC_VERSION,
+  level: "accept",
+  title: "Confirm your professional license",
+  terms: [],
+  checkboxes: [ATTESTATIONS.find((b) => b.id === "C2")!],
+});
+
 // Everything in the signed document, in order.
 export const DOCUMENT_BLOCKS: Block[] = allBlocks(ALETHEIA_BETA);
 

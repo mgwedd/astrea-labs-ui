@@ -16,8 +16,12 @@ export const licenses = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }), // token exp; null = never expires
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     revokedReason: text('revoked_reason'),
+    revokedBy: text('revoked_by'), // who revoked it, as given to the admin API
     replacedBy: uuid('replaced_by'), // lid of the license that superseded this one
     renewalSentAt: timestamp('renewal_sent_at', { withTimezone: true }),
+    // Renewals: the key is shown only after the licensee confirms C2 again.
+    attestationRequired: boolean('attestation_required').notNull().default(false),
+    attestedAt: timestamp('attested_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('licenses_email_idx').on(t.email), index('licenses_expires_at_idx').on(t.expiresAt)],
