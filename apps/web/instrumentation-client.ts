@@ -9,5 +9,6 @@ initBotId({
     { path: '/api/feedback', method: 'POST' },
     { path: '/api/feedback/confirm', method: 'POST' },
     { path: '/api/agreements/accept', method: 'POST' },
+    { path: '/api/account/invite', method: 'POST' },
   ],
 });

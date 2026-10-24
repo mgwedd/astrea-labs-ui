@@ -13,7 +13,7 @@ import { addMonths, requestLicense, type Db } from '@/lib/licensing/service';
 import { LICENSE_PREFIX, publicKeyFromRaw, rawPublicKey, verifyLicense } from '@/lib/licensing/token';
 import { applicationInputSchema } from '@/lib/beta-access/answers';
 import { memoryBlobStore, type BlobStore } from '@/lib/agreements/signed/blob';
-import { ALETHEIA_RENEWAL, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
+import { LEGAL_VERSION, ALETHEIA_RENEWAL, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
 import { agreementAcceptances } from '@/lib/agreements/db/schema';
 import { sha256Hex } from '@/lib/beta-access/hash';
 import { devPublicKey, devSealer, sealMessage } from '@/lib/agreements/signed/seal';
@@ -442,6 +442,42 @@ describe('append-only evidence', () => {
     expect(await deps.db.select().from(signedDocuments)).toHaveLength(1);
     expect(await deps.db.select().from(documentReviews)).toHaveLength(1);
     expect(rows(await deps.db.execute(sql`SELECT signer_name FROM signed_documents`))[0].signer_name).toBe('Jane Doe');
+  });
+});
+
+describe('approve and terms acceptance', () => {
+  const docs = {
+    terms: { version: LEGAL_VERSION, sha256: 'b'.repeat(64) },
+    privacy: { version: LEGAL_VERSION, sha256: 'c'.repeat(64) },
+  };
+
+  it('the minted token carries the accepted versions, hashes and the C1 tick time', async () => {
+    deps.shippedDocs = docs;
+    const { app, documentId } = await signed();
+    const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
+    const c1 = doc.blocks.find((b) => b.id === 'C1')!;
+    const r = await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    if (!r.ok) throw new Error(r.error);
+    const link = keyLinkIn(lastTo('jane@example.com'));
+    const k = await revealKey(deps, link);
+    if (!k.ok) throw new Error(k.reason);
+    const v = verifyLicense(k.token, pub, Math.floor(clock.getTime() / 1000));
+    const at = Math.floor(Date.parse(c1.tickedAt) / 1000);
+    expect(v.ok && v.payload.acc).toEqual([
+      { d: 'terms', v: LEGAL_VERSION, h: docs.terms.sha256, at },
+      { d: 'privacy', v: LEGAL_VERSION, h: docs.privacy.sha256, at },
+    ]);
+    expect(v.ok && v.payload.cl).toEqual(['no-baa', 'beta-no-sla']);
+  });
+
+  it('records nothing when the shipped version is not the one the applicant accepted', async () => {
+    deps.shippedDocs = { terms: { version: '1999-01-01', sha256: 'b'.repeat(64) } };
+    const { app } = await signed();
+    await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    const k = await revealKey(deps, keyLinkIn(lastTo('jane@example.com')));
+    if (!k.ok) throw new Error(k.reason);
+    const v = verifyLicense(k.token, pub, Math.floor(clock.getTime() / 1000));
+    expect(v.ok && 'acc' in v.payload).toBe(false);
   });
 });
 
