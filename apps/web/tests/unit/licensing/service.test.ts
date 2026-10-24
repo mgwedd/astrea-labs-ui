@@ -79,6 +79,14 @@ async function issueExpiring(email: string, days: number) {
   return (await reissueLicense(deps, first.lid, { expiresAt: new Date(clock.getTime() + days * DAY) }))!;
 }
 
+describe('claims in minted tokens', () => {
+  it('a beta token carries the fixed claims and no acc without an agreement', async () => {
+    const r = verifyLicense(tokenFor(await issue('plain@example.com'), key), pub, nowS());
+    expect(r.ok && r.payload.cl).toEqual(['no-baa', 'beta-no-sla']);
+    expect(r.ok && 'acc' in r.payload).toBe(false);
+  });
+});
+
 describe('issueLicense', () => {
   it('defaults to a 12-month expiry when none is passed', async () => {
     const row = await issueLicense(deps, 'default@example.com', false);
