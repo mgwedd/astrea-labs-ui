@@ -1,13 +1,24 @@
 import Link from 'next/link';
 import { ArrowUpRight, Download } from 'lucide-react';
 import type { Project } from '@astrea/research-registry';
-import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@astrea/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from '@astrea/ui';
 import { PLATFORM_LABEL } from '@/components/project-detail';
 import { ProjectStatusBadge } from '@/components/project-status';
 import { formatBytes, type Release } from '@/lib/releases';
 import { formatDate } from '@/lib/writing';
-
-const rowClass = 'flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/40';
 
 /** Download card for one app: latest release assets, or the registry links when there is no release. */
 export function AppDownloadCard({ project: p, release }: { project: Project; release: Release | null }) {
@@ -27,24 +38,32 @@ export function AppDownloadCard({ project: p, release }: { project: Project; rel
       <CardContent className="flex flex-1 flex-col gap-3">
         {release && release.assets.length > 0
           ? release.assets.map((a) => (
-              <a key={a.name} href={a.url} className={rowClass}>
-                <span className="flex flex-col gap-0.5">
-                  <span className="font-medium">{a.platform && PLATFORM_LABEL[a.platform]}</span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {a.name} · {formatBytes(a.size)}
-                  </span>
-                </span>
-                <Download className="size-4 text-muted-foreground" />
-              </a>
+              <Item key={a.name} variant="outline" asChild>
+                <a href={a.url}>
+                  <ItemContent className="gap-0.5">
+                    <ItemTitle>{a.platform && PLATFORM_LABEL[a.platform]}</ItemTitle>
+                    <ItemDescription className="line-clamp-none break-all font-mono text-xs">
+                      {a.name} · {formatBytes(a.size)}
+                    </ItemDescription>
+                  </ItemContent>
+                  <ItemActions className="text-muted-foreground">
+                    <Download className="size-4" />
+                  </ItemActions>
+                </a>
+              </Item>
             ))
           : p.downloads!.map((d) => (
-              <a key={d.url + d.platform} href={d.url} className={rowClass}>
-                <span className="flex flex-col gap-0.5">
-                  <span className="font-medium">{d.label}</span>
-                  {d.note && <span className="text-xs text-muted-foreground">{d.note}</span>}
-                </span>
-                <ArrowUpRight className="size-4 text-muted-foreground" />
-              </a>
+              <Item key={d.url + d.platform} variant="outline" asChild>
+                <a href={d.url}>
+                  <ItemContent className="gap-0.5">
+                    <ItemTitle>{d.label}</ItemTitle>
+                    {d.note && <ItemDescription className="line-clamp-none text-xs">{d.note}</ItemDescription>}
+                  </ItemContent>
+                  <ItemActions className="text-muted-foreground">
+                    <ArrowUpRight className="size-4" />
+                  </ItemActions>
+                </a>
+              </Item>
             ))}
         {release && p.downloads?.some((d) => d.note) && (
           <p className="text-xs text-muted-foreground">

@@ -3,7 +3,20 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
-import { Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Separator } from '@astrea/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  Separator,
+} from '@astrea/ui';
 import { PageHeader } from '@/components/page-header';
 import { DocumentFrame } from '@/components/beta/document-frame';
 import { InfoTip } from '@/components/beta/info-tip';
@@ -145,14 +158,18 @@ function LinkProblem({ kind, canContinue }: { kind: string; canContinue?: boolea
     <Shell title={problem.title}>
       <ResumeCard title="Get a new signing link" description={problem.body}>
         {canContinue && (
-          <div className="flex flex-col gap-3 rounded-lg border bg-muted/40 p-4 text-sm">
-            <p className="text-muted-foreground">You already have a signing session open in this browser.</p>
-            <Button size="sm" className="self-start" asChild>
-              <Link href="/aletheia/beta/sign">
-                Continue signing <ArrowRight data-icon="inline-end" />
-              </Link>
-            </Button>
-          </div>
+          <Item variant="muted">
+            <ItemContent>
+              <ItemDescription className="line-clamp-none">You already have a signing session open in this browser.</ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <Button size="sm" asChild>
+                <Link href="/aletheia/beta/sign">
+                  Continue signing <ArrowRight data-icon="inline-end" />
+                </Link>
+              </Button>
+            </ItemActions>
+          </Item>
         )}
       </ResumeCard>
     </Shell>

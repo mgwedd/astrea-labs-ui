@@ -26,7 +26,7 @@ export default async function AletheiaDownloadPage() {
         <h2 id="requirements" className="mb-3 text-lg font-semibold">
           Requirements
         </h2>
-        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
           <li>macOS 14 or later</li>
           <li>Apple Silicon with 16 GB of memory recommended</li>
         </ul>
