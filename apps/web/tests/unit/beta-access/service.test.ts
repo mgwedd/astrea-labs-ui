@@ -13,7 +13,8 @@ import { addMonths, requestLicense, type Db } from '@/lib/licensing/service';
 import { LICENSE_PREFIX, publicKeyFromRaw, rawPublicKey, verifyLicense } from '@/lib/licensing/token';
 import { applicationInputSchema } from '@/lib/beta-access/answers';
 import { memoryBlobStore, type BlobStore } from '@/lib/agreements/signed/blob';
-import { REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
+import { ALETHEIA_RENEWAL, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
+import { agreementAcceptances } from '@/lib/agreements/db/schema';
 import { sha256Hex } from '@/lib/beta-access/hash';
 import { devPublicKey, devSealer, sealMessage } from '@/lib/agreements/signed/seal';
 import {
@@ -28,6 +29,7 @@ import {
   BETA_LICENSE_MONTHS,
   listApplications,
   openSigningLink,
+  REAPPLY_AFTER_MONTHS,
   peekSigningLink,
   resendKeyLink,
   resume,
@@ -532,6 +534,69 @@ describe('decline', () => {
     const before = sent.length;
     expect(await apply(deps, input())).toBe('exists');
     expect(sent).toHaveLength(before);
+  });
+
+  it('says when to reapply and how to ask for deletion', async () => {
+    const { app } = await signed();
+    await decline(deps, { applicationId: app.id, reviewer: 'mw' });
+    const mail = lastTo('jane@example.com');
+    expect(REAPPLY_AFTER_MONTHS).toBe(3);
+    expect(mail.text).toContain('You can apply again from February 2, 2027.');
+    expect(mail.text).toContain('email support@astrealabs.com');
+    expect(mail.html).toContain('mailto:support@astrealabs.com');
+  });
+
+  it('lets a declined address apply again as a new application after 3 months', async () => {
+    const { app } = await signed();
+    await decline(deps, { applicationId: app.id, reviewer: 'mw' });
+    // Nov 2 + 3 months = Feb 2: 92 days.
+    advance(92 * DAY - MIN);
+    expect(await apply(deps, input())).toBe('exists');
+    advance(MIN);
+    expect(await apply(deps, input())).toBe('sent');
+    const rows = await deps.db.select().from(betaApplications);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === app.id)!.status).toBe('declined');
+    expect(rows.find((r) => r.id !== app.id)!.status).toBe('draft');
+    // A submitted or approved application still can't be replaced.
+    const { app: other } = await signed({ email: 'sam@example.com' });
+    await approve(deps, { applicationId: other.id, reviewer: 'mw', licenseCheck });
+    advance(365 * DAY);
+    expect(await apply(deps, input({ email: 'sam@example.com' }))).toBe('exists');
+  });
+});
+
+describe('renewal re-attestation on the key page', () => {
+  it('asks for C2 again, records it against the license email, then shows the key', async () => {
+    const { app } = await signed();
+    const r = await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    if (!r.ok) throw new Error(r.error);
+    // As runRenewals leaves a renewal.
+    await deps.db.update(licenses).set({ attestationRequired: true }).where(eq(licenses.lid, r.lid!));
+    const link = keyLinkIn(lastTo('jane@example.com'));
+
+    expect(await revealKey(deps, link)).toEqual({ ok: false, reason: 'attestation_required' });
+    const shownAt = clock.toISOString();
+    advance(MIN);
+    const bad = { version: 'old', shownAt, tickedAt: { C2: clock.toISOString() } };
+    expect(await revealKey(deps, link, bad, meta)).toEqual({ ok: false, reason: 'attestation_invalid' });
+    expect(await revealKey(deps, link, { ...bad, tickedAt: {} , version: ALETHEIA_RENEWAL.version }, meta)).toEqual({
+      ok: false,
+      reason: 'attestation_invalid',
+    });
+
+    const good = { version: ALETHEIA_RENEWAL.version, shownAt, tickedAt: { C2: clock.toISOString() } };
+    const k = await revealKey(deps, link, good, meta);
+    expect(k.ok).toBe(true);
+    const rows = await deps.db.select().from(agreementAcceptances);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      agreementId: 'aletheia-beta-renewal',
+      subject: 'jane@example.com',
+      subjectVerified: true,
+      ip: meta.ip,
+    });
+    expect(await revealKey(deps, link, good, meta)).toEqual({ ok: false, reason: 'used' });
   });
 });
 
