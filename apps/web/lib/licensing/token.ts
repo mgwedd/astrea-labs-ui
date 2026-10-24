@@ -7,12 +7,40 @@
 // signature = base64url (no padding) of Ed25519 over the ASCII bytes "<prefix>.<payload>"
 //
 // This file only depends on node:crypto so scripts can import it directly.
-import { createPrivateKey, createPublicKey, sign, verify, type KeyObject } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, sign, verify, type KeyObject } from 'node:crypto';
 
 export const LICENSE_PREFIX = 'ALET1';
 export const REVOCATIONS_PREFIX = 'ALETR1';
 export const MAX_TOKEN_BYTES = 1024;
 export const MAX_REVOCATIONS_BYTES = 256 * 1024;
+
+/** Fixed claim codes a license may carry. The only place they are defined. */
+export const CLAIM_CODES = ['no-baa', 'beta-no-sla'] as const;
+export type ClaimCode = (typeof CLAIM_CODES)[number];
+
+/** Claims every license of a tier carries. */
+export const CLAIMS_BY_TIER: Record<LicensePayload['tier'], readonly ClaimCode[]> = {
+  beta: ['no-baa', 'beta-no-sla'],
+};
+
+export const ACCEPTED_DOCS = ['terms', 'privacy'] as const;
+
+/** One document the licensee accepted on the site. */
+export type Acceptance = {
+  /** Which document. */
+  d: (typeof ACCEPTED_DOCS)[number];
+  /** The document's version string, the same one the app uses. */
+  v: string;
+  /** Lowercase hex SHA-256 of the exact UTF-8 bytes of the document as accepted. */
+  h: string;
+  /** Unix seconds of acceptance. */
+  at: number;
+};
+
+/** Lowercase hex SHA-256 of a document's exact bytes (or of a string's UTF-8 bytes). */
+export function hashDocument(bytes: Uint8Array | string): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
 
 export type LicensePayload = {
   v: 1;
@@ -23,6 +51,10 @@ export type LicensePayload = {
   iat: number;
   /** Unix seconds. Omitted: the license never expires. */
   exp?: number;
+  /** Terms and privacy versions accepted on the site, with the hash of each. */
+  acc?: Acceptance[];
+  /** Fixed claim codes (see CLAIM_CODES). */
+  cl?: ClaimCode[];
 };
 
 export type RevocationsPayload = {
@@ -79,8 +111,34 @@ function signParts(prefix: string, payload: object, privateKey: KeyObject): stri
   return `${signed}.${b64url(signature)}`;
 }
 
+/** Throws if the optional acc / cl fields are malformed. Runs at mint time. */
+export function assertTermsFields(payload: Pick<LicensePayload, 'acc' | 'cl'>): void {
+  const { acc, cl } = payload;
+  if (acc !== undefined) {
+    if (!Array.isArray(acc)) throw new Error('acc must be an array');
+    const seen = new Set<string>();
+    for (const a of acc) {
+      if (typeof a !== 'object' || a === null) throw new Error('acc entry must be an object');
+      if (!(ACCEPTED_DOCS as readonly string[]).includes(a.d)) throw new Error(`unknown acc document: ${String(a.d)}`);
+      if (seen.has(a.d)) throw new Error(`duplicate acc document: ${a.d}`);
+      seen.add(a.d);
+      if (typeof a.v !== 'string' || a.v.length === 0 || a.v.length > 32) throw new Error('acc version must be 1-32 characters');
+      if (typeof a.h !== 'string' || !/^[0-9a-f]{64}$/.test(a.h)) throw new Error('acc hash must be 64 lowercase hex characters');
+      if (!Number.isSafeInteger(a.at) || a.at < 0) throw new Error('acc time must be unix seconds');
+    }
+  }
+  if (cl !== undefined) {
+    if (!Array.isArray(cl)) throw new Error('cl must be an array');
+    for (const c of cl) {
+      if (!(CLAIM_CODES as readonly string[]).includes(c)) throw new Error(`unknown claim code: ${String(c)}`);
+    }
+    if (new Set(cl).size !== cl.length) throw new Error('duplicate claim code');
+  }
+}
+
 export function signLicense(payload: LicensePayload, key: SigningKey): string {
   if (payload.kid !== key.kid) throw new Error('payload kid does not match signing key');
+  assertTermsFields(payload);
   const token = signParts(LICENSE_PREFIX, payload, key.privateKey);
   if (Buffer.byteLength(token) > MAX_TOKEN_BYTES) throw new Error('license token over 1 KB');
   return token;

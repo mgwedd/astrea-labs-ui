@@ -7,7 +7,15 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from './db/schema';
 import { betaApplications, emailSends, keyLinks, licenses, type License } from './db/schema';
 import { keyLinkEmail, type KeyLinkKind, type Mailer } from './email';
-import { signLicense, signRevocations, type LicensePayload, type SigningKey } from './token';
+import { acceptanceFor, type ShippedDocs } from './acceptance';
+import {
+  CLAIMS_BY_TIER,
+  signLicense,
+  signRevocations,
+  type Acceptance,
+  type LicensePayload,
+  type SigningKey,
+} from './token';
 
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
@@ -36,6 +44,8 @@ export type Deps = {
   downloadUrl: string;
   /** Origin for links in emails, no trailing slash. See siteUrlFor in server.ts. */
   siteUrl: string;
+  /** Shipped terms/privacy versions and hashes; defaults to the generated manifest. */
+  shippedDocs?: ShippedDocs;
   now?: () => Date;
 };
 
@@ -69,7 +79,7 @@ export function normalizeEmail(email: string): string {
 }
 
 /** Rebuilds the exact token for a stored license. Tokens themselves are never stored. */
-export function tokenFor(license: License, key: SigningKey): string {
+export function tokenFor(license: License, key: SigningKey, accepted: Acceptance[] = []): string {
   if (license.kid !== key.kid) {
     throw new Error(`license ${license.lid} was signed with ${license.kid}, active key is ${key.kid}`);
   }
@@ -81,6 +91,8 @@ export function tokenFor(license: License, key: SigningKey): string {
     tier: 'beta',
     iat: toUnix(license.issuedAt),
     ...(license.expiresAt ? { exp: toUnix(license.expiresAt) } : {}),
+    ...(accepted.length ? { acc: accepted } : {}),
+    cl: [...CLAIMS_BY_TIER.beta],
   };
   return signLicense(payload, key);
 }
@@ -205,7 +217,7 @@ export async function revealKeyLink(deps: Deps, token: string, attest?: Attest):
     .where(and(eq(keyLinks.id, link.id), isNull(keyLinks.usedAt), gt(keyLinks.expiresAt, now)))
     .returning({ id: keyLinks.id });
   if (!won) return { ok: false, reason: 'used' };
-  return { ok: true, token: tokenFor(license, deps.key), license, applicationId: link.applicationId };
+  return { ok: true, token: tokenFor(license, deps.key, await acceptanceFor(deps, license.lid)), license, applicationId: link.applicationId };
 }
 
 export async function isRateLimited(deps: Deps, email: string): Promise<boolean> {
