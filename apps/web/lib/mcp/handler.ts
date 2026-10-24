@@ -13,7 +13,7 @@ import { authenticatedToolNames, buildMcpServer } from './server';
 const LOCAL = ['localhost', '127.0.0.1', '[::1]'];
 
 /** Hosts /mcp answers on: the apex, local dev and this deployment's own Vercel URLs (DNS rebinding guard). */
-export function allowedHosts(env: NodeJS.ProcessEnv = process.env): string[] {
+export function allowedHosts(env: Partial<Record<string, string>> = process.env): string[] {
   const apex = new URL(site.url).hostname;
   const vercel = [env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL].filter((h): h is string => !!h);
   return [apex, `www.${apex}`, ...vercel, ...LOCAL];

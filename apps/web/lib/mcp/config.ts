@@ -26,7 +26,7 @@ export interface McpAuthConfig {
  * Auth config, or undefined when it isn't set. Without it the public tools still work,
  * the authenticated tools aren't registered and no protected resource metadata is served.
  */
-export function mcpAuthConfig(env: NodeJS.ProcessEnv = process.env): McpAuthConfig | undefined {
+export function mcpAuthConfig(env: Partial<Record<string, string>> = process.env): McpAuthConfig | undefined {
   const { AUTH0_DOMAIN: domain, MCP_OBO_CLIENT_ID: clientId, MCP_OBO_CLIENT_SECRET: clientSecret } = env;
   return domain && clientId && clientSecret ? { domain, clientId, clientSecret } : undefined;
 }
