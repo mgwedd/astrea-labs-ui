@@ -43,5 +43,9 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "vercel@claude-plugins-official": true,
+    "figma@inline": true
   }
 }
