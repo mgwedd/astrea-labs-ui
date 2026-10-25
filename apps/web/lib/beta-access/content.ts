@@ -219,7 +219,7 @@ export const ALETHEIA_RENEWAL = defineAgreement({
 // Everything in the signed document, in order.
 export const documentBlocks = (legalVersion: string): Block[] => allBlocks(betaAgreement(legalVersion));
 
-// Block ids and the PDF frame don't depend on the legal version. This definition
+// Block ids and the PDF frame don't depend on the terms version. This definition
 // names a placeholder version in C1, so use it for ids and paths, never for text.
 export const BETA_FRAME = betaAgreement("0000-00-00");
 export const REQUIRED_AT_APPLY: string[] = requiredCheckboxIds(BETA_FRAME);

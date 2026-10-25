@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function ApplyPage() {
-  const legal = await getLegalDocs();
+  const docs = await getLegalDocs();
   return (
     <div className="container max-w-2xl pb-16">
       <PageHeader eyebrow="Aletheia · Beta application" title="Apply for the beta">
@@ -25,7 +25,7 @@ export default async function ApplyPage() {
         </Link>
         .
       </PageHeader>
-      <ApplyForm legalVersion={legal.version} />
+      <ApplyForm legalVersion={docs.version} />
     </div>
   );
 }

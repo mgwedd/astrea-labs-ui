@@ -31,7 +31,7 @@ describe("beta-access content", () => {
     expect(new Set(ids).size).toBe(DOCUMENT_BLOCKS.length);
   });
 
-  it("C1 names the legal version it is given, and links to the site pages", () => {
+  it("C1 names the terms version it is given, and links to the site pages", () => {
     const c1 = blockById("C1", V).text;
     expect(c1).toContain(`**Terms of Service** (version ${V}, astrealabs.com/aletheia/terms)`);
     expect(c1).toContain(`**Privacy Policy** (version ${V}, astrealabs.com/aletheia/privacy)`);

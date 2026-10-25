@@ -66,11 +66,11 @@ describe('getLegalDocs', () => {
     const terms = bytes(doc('2026-10-25', 'terms'));
     const privacy = bytes(doc('2026-10-25', 'privacy'));
     const calls = stubFetch({ 'TERMS.md': terms, 'PRIVACY.md': privacy });
-    const legal = await getLegalDocs();
-    expect(legal.version).toBe('2026-10-25');
-    expect(legal.terms.sha256).toBe(sha(terms));
-    expect(legal.privacy.sha256).toBe(sha(privacy));
-    expect(legal.terms.markdown).toContain('Body terms');
+    const docs = await getLegalDocs();
+    expect(docs.version).toBe('2026-10-25');
+    expect(docs.terms.sha256).toBe(sha(terms));
+    expect(docs.privacy.sha256).toBe(sha(privacy));
+    expect(docs.terms.markdown).toContain('Body terms');
     expect(calls.sort()).toEqual([
       'https://raw.githubusercontent.com/mgwedd/aletheia/main/PRIVACY.md',
       'https://raw.githubusercontent.com/mgwedd/aletheia/main/TERMS.md',

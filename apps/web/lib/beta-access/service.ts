@@ -74,7 +74,7 @@ const SKEW_MS = 1 * MIN;
 /** Apply-time consents must have been ticked within this window. */
 const CONSENT_MAX_AGE_MS = 24 * HOUR;
 const UA_MAX = 512;
-const FRAME = BETA_FRAME; // paths only; text comes from betaAgreement(legal.version)
+const FRAME = BETA_FRAME; // paths only; text comes from betaAgreement(docs.version)
 
 const nowOf = (deps: { now?: () => Date }) => deps.now?.() ?? new Date();
 const errType = (err: unknown) => (err instanceof Error ? err.name : typeof err);
@@ -154,8 +154,8 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
   const problem = checkApplyConsents(input.consents, now);
   if (problem) return { invalid: problem };
   // C1 names a version of the Terms and Privacy Policy; it must be the one in force now.
-  const legal = await deps.legalDocs();
-  if (input.legalVersion !== legal.version) {
+  const docs = await deps.legalDocs();
+  if (input.legalVersion !== docs.version) {
     return { invalid: 'The Terms of Service and Privacy Policy were updated. Reload the page and review them again.' };
   }
 
@@ -175,10 +175,10 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
   const expiresAt = new Date(now.getTime() + SIGN_LINK_TTL_MS);
   const values = {
     answers: { ...input.answers, email },
-    consents: consentRecords(input.consents, legal.version),
+    consents: consentRecords(input.consents, docs.version),
     acceptedDocs: [
-      { d: 'terms' as const, v: legal.terms.version, h: legal.terms.sha256 },
-      { d: 'privacy' as const, v: legal.privacy.version, h: legal.privacy.sha256 },
+      { d: 'terms' as const, v: docs.terms.version, h: docs.terms.sha256 },
+      { d: 'privacy' as const, v: docs.privacy.version, h: docs.privacy.sha256 },
     ],
     updatesOptIn: Object.hasOwn(input.consents, 'C11'),
     signLinkHash: hashLinkToken(token),

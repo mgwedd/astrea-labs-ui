@@ -108,7 +108,7 @@ describe('stampAndCertify', () => {
 });
 
 // A change here means the Aletheia PDF changed: bump DOC_VERSION, then update.
-// Fixed at legal version 2026-10-24, which C1 names.
+// Fixed at terms version 2026-10-24, which C1 names.
 describe('Aletheia PDF output', () => {
   it('is unchanged byte for byte', async () => {
     const withC11 = { ...ticked, C11: new Date(Date.UTC(2026, 9, 23, 14, 2, 11)).toISOString() };

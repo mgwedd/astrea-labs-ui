@@ -50,7 +50,7 @@ const legalAt = (version: string): LegalDocs => ({
   terms: { version, sha256: 'b'.repeat(64), markdown: '' },
   privacy: { version, sha256: 'c'.repeat(64), markdown: '' },
 });
-let legal: LegalDocs;
+let docs: LegalDocs;
 const key = { kid: 'test-1', privateKey: generateKeyPairSync('ed25519').privateKey };
 const pub = { 'test-1': publicKeyFromRaw(rawPublicKey(key.privateKey)) };
 
@@ -66,7 +66,7 @@ beforeEach(async () => {
   sent = [];
   clock = new Date('2026-11-02T09:00:00.000Z');
   failPut = null;
-  legal = legalAt(LEGAL_VERSION);
+  docs = legalAt(LEGAL_VERSION);
   const inner = memoryBlobStore();
   blob = {
     put: async (p, bytes, type) => {
@@ -86,7 +86,7 @@ beforeEach(async () => {
     blob,
     sealer: devSealer(),
     reviewEmail: 'review@astrealabs.test',
-    legalDocs: async () => legal,
+    legalDocs: async () => docs,
   };
 });
 
@@ -488,7 +488,7 @@ describe('approve and terms acceptance', () => {
 
   it('keeps the recorded documents when the live ones change later', async () => {
     const { app } = await signed();
-    legal = legalAt('2027-01-01');
+    docs = legalAt('2027-01-01');
     await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
     const k = await revealKey(deps, keyLinkIn(lastTo('jane@example.com')));
     if (!k.ok) throw new Error(k.reason);
@@ -507,9 +507,9 @@ describe('approve and terms acceptance', () => {
   });
 });
 
-describe('legal version', () => {
+describe('terms version', () => {
   it('rejects an application that names a version other than the current one', async () => {
-    legal = legalAt('2026-10-26');
+    docs = legalAt('2026-10-26');
     expect(await apply(deps, input())).toEqual({ invalid: expect.stringContaining('were updated') });
     expect(await deps.db.select().from(betaApplications)).toHaveLength(0);
   });
@@ -524,13 +524,13 @@ describe('legal version', () => {
 
   it('expires the signing link when the version changed after the applicant ticked C1', async () => {
     expect(await apply(deps, input())).toBe('sent');
-    legal = legalAt('2026-10-26');
+    docs = legalAt('2026-10-26');
     expect(await openSigningLink(deps, signLinkIn(sent.at(-1)!))).toEqual({ ok: false, reason: 'expired' });
   });
 
   it('refuses to sign when the version changed after the document was made', async () => {
     const session = await readyToSign();
-    legal = legalAt('2026-10-26');
+    docs = legalAt('2026-10-26');
     const r = await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta);
     expect(r).toEqual({ ok: false, error: 'invalid' });
     expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);

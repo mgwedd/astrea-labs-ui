@@ -27,7 +27,7 @@ describe('documentBlockRecords', () => {
 });
 
 describe('C1 hash', () => {
-  it('changes with the legal version, so ticks for another version are stale', () => {
+  it('changes with the terms version, so ticks for another version are stale', () => {
     const c1 = (v: string) => documentBlockRecords(v).find((r) => r.id === 'C1')!.sha256;
     expect(c1('2026-10-24')).not.toBe(c1('2026-10-25'));
     expect(c1('2026-10-24')).toBe(sha256Hex(blockById('C1', '2026-10-24').text));
