@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PageHeader } from '@/components/page-header';
+import { getLegalDocs } from '@/lib/aletheia-docs';
 import { ApplyForm } from '@/components/beta/apply/apply-form';
 
 export const metadata: Metadata = {
@@ -9,7 +10,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function ApplyPage() {
+// The form names the current Terms version, fetched from the Aletheia repo.
+export const dynamic = 'force-dynamic';
+
+export default async function ApplyPage() {
+  const legal = await getLegalDocs();
   return (
     <div className="container max-w-2xl pb-16">
       <PageHeader eyebrow="Aletheia · Beta application" title="Apply for the beta">
@@ -20,7 +25,7 @@ export default function ApplyPage() {
         </Link>
         .
       </PageHeader>
-      <ApplyForm />
+      <ApplyForm legalVersion={legal.version} />
     </div>
   );
 }

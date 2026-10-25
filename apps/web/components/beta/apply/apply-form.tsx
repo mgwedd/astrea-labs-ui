@@ -28,7 +28,7 @@ const STEP_CONSENTS = [[], ['B0'], REQUIRED_AT_APPLY.filter((id) => id !== 'B0')
 
 type Submit = { kind: 'idle' } | { kind: 'sending' } | { kind: 'error'; message: string } | { kind: 'sent'; email: string };
 
-export function ApplyForm() {
+export function ApplyForm({ legalVersion }: { legalVersion: string }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [step, setStep] = useState(0);
   // Block id -> ISO time it was ticked. Unticking removes the entry.
@@ -130,7 +130,7 @@ export function ApplyForm() {
     e.preventDefault();
     if (step < STEPS.length - 1) return next();
 
-    const parsed = applicationInputSchema.safeParse({ answers: toAnswersInput(draft), consents });
+    const parsed = applicationInputSchema.safeParse({ legalVersion, answers: toAnswersInput(draft), consents });
     if (!parsed.success) {
       // Something earlier is no longer valid (it shouldn't happen): send them back to it.
       const firstBad = validateAnswers(draft);
@@ -155,7 +155,7 @@ export function ApplyForm() {
         kind: 'error',
         message:
           res.status === 400
-            ? 'Some answers weren’t accepted. Go back, check each step, and try again.'
+            ? 'Some answers weren’t accepted, or the Terms and Privacy Policy were updated. Reload the page, check each step, and try again.'
             : res.status === 403
               ? 'Our bot check blocked this request. Reload the page and try again.'
               : res.status === 429
@@ -233,7 +233,7 @@ export function ApplyForm() {
         <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
           {step === 0 && <StepAbout draft={draft} errors={errors} update={update} />}
           {step === 1 && <StepHandling consents={consents} setConsent={setConsent} errors={errors} />}
-          {step === 2 && <StepAttestations consents={consents} setConsent={setConsent} errors={errors} />}
+          {step === 2 && <StepAttestations legalVersion={legalVersion} consents={consents} setConsent={setConsent} errors={errors} />}
           {step === 3 && answers && <StepReview answers={answers} consents={consents} goTo={goTo} />}
         </CardContent>
         <CardFooter className="flex flex-col items-stretch gap-4 border-t p-4 sm:p-6">

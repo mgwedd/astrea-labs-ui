@@ -3,7 +3,9 @@
 // ALL TEXT IN THIS FILE IS A DRAFT FOR COUNSEL REVIEW. It is not legal advice.
 //
 // Every `text` string is SHA-256 hashed as evidence of what the applicant saw.
-// ANY CHANGE TO ANY TEXT HERE MUST BUMP `DOC_VERSION`.
+// ANY CHANGE TO ANY TEXT HERE MUST BUMP `DOC_VERSION`. (C1 also names the Aletheia
+// Terms version fetched at the time; it is hashed as shown, so a new Terms version
+// makes earlier ticks stale without a DOC_VERSION change.)
 //
 // Client-safe: no node imports.
 
@@ -12,8 +14,7 @@ import { allBlocks, defineAgreement, optionalCheckboxIds, requiredCheckboxIds, t
 export type { Block };
 
 export const DOC_TYPE = "beta-access";
-export const DOC_VERSION = "2026-10-23-draft.2"; // one version for every block in this document
-export const LEGAL_VERSION = "2026-10-23"; // Terms + Privacy version named in C1
+export const DOC_VERSION = "2026-10-25-draft.1"; // one version for every block in this document
 export const NO_CLIENT_INFO = "Don't include any client or patient information.";
 
 
@@ -114,11 +115,18 @@ export const DISCLOSURES: Block[] = [
   },
 ];
 
-export const ATTESTATIONS: Block[] = [
-  {
-    id: "C1",
-    text: `I have read and accept the Aletheia **Terms of Service** (version ${LEGAL_VERSION}) and **Privacy Policy** (version ${LEGAL_VERSION}), including the warranty disclaimer, limitation of liability and indemnification.`,
-  },
+// The Terms and Privacy Policy are owned by the Aletheia repo and fetched by the
+// site (lib/aletheia-docs.ts), so C1 names the version fetched now. The text is
+// hashed as shown, version included.
+export const TERMS_PATH = "astrealabs.com/aletheia/terms";
+export const PRIVACY_PATH = "astrealabs.com/aletheia/privacy";
+
+export const termsAttestation = (legalVersion: string): Block => ({
+  id: "C1",
+  text: `I have read and accept the Aletheia **Terms of Service** (version ${legalVersion}, ${TERMS_PATH}) and **Privacy Policy** (version ${legalVersion}, ${PRIVACY_PATH}), including the warranty disclaimer, limitation of liability and indemnification.`,
+});
+
+const OTHER_ATTESTATIONS: Block[] = [
   {
     id: "C2",
     text: "The information I've given is true. I hold the license(s) I listed and they are active and unrestricted. If I'm pre-licensed, I practise under the supervisor I named. **I will tell Astrea Labs within 10 days** if my license lapses, is restricted, or is suspended.",
@@ -162,16 +170,19 @@ export const ATTESTATIONS: Block[] = [
   },
 ];
 
+export const attestations = (legalVersion: string): Block[] => [termsAttestation(legalVersion), ...OTHER_ATTESTATIONS];
+
 // The beta agreement as a signed-level definition (lib/agreements). C12 is the
-// signing consent, ticked at the signature step.
-export const ALETHEIA_BETA = defineAgreement({
+// signing consent, ticked at the signature step. `legalVersion` is the version
+// of the Aletheia Terms and Privacy Policy that C1 names.
+export const betaAgreement = (legalVersion: string) => defineAgreement({
   id: "aletheia-beta",
   version: DOC_VERSION,
   level: "signed",
   title: "Aletheia Beta Access Agreement",
   terms: [HANDLING_INTRO, ...HANDLING, ...DISCLOSURES],
-  checkboxes: [B0, ...ATTESTATIONS.filter((b) => b.id !== "C12")],
-  signingConsent: ATTESTATIONS.find((b) => b.id === "C12")!,
+  checkboxes: [B0, ...attestations(legalVersion).filter((b) => b.id !== "C12")],
+  signingConsent: OTHER_ATTESTATIONS.find((b) => b.id === "C12")!,
   document: {
     type: DOC_TYPE,
     title: "Aletheia beta access application",
@@ -202,18 +213,22 @@ export const ALETHEIA_RENEWAL = defineAgreement({
   level: "accept",
   title: "Confirm your professional license",
   terms: [],
-  checkboxes: [ATTESTATIONS.find((b) => b.id === "C2")!],
+  checkboxes: [OTHER_ATTESTATIONS.find((b) => b.id === "C2")!],
 });
 
 // Everything in the signed document, in order.
-export const DOCUMENT_BLOCKS: Block[] = allBlocks(ALETHEIA_BETA);
+export const documentBlocks = (legalVersion: string): Block[] => allBlocks(betaAgreement(legalVersion));
 
-export const REQUIRED_AT_APPLY: string[] = requiredCheckboxIds(ALETHEIA_BETA);
-export const OPTIONAL_AT_APPLY: string[] = optionalCheckboxIds(ALETHEIA_BETA);
-export const SIGNING_CONSENT_ID = ALETHEIA_BETA.signingConsent.id;
+// Block ids and the PDF frame don't depend on the legal version. This definition
+// names a placeholder version in C1, so use it for ids and paths, never for text.
+export const BETA_FRAME = betaAgreement("0000-00-00");
+export const REQUIRED_AT_APPLY: string[] = requiredCheckboxIds(BETA_FRAME);
+export const OPTIONAL_AT_APPLY: string[] = optionalCheckboxIds(BETA_FRAME);
+export const SIGNING_CONSENT = BETA_FRAME.signingConsent;
+export const SIGNING_CONSENT_ID = SIGNING_CONSENT.id;
 
-export function blockById(id: string): Block {
-  const block = DOCUMENT_BLOCKS.find((b) => b.id === id);
+export function blockById(id: string, legalVersion: string): Block {
+  const block = documentBlocks(legalVersion).find((b) => b.id === id);
   if (!block) throw new Error(`Unknown block id: ${id}`);
   return block;
 }

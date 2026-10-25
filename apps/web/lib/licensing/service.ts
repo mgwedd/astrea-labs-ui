@@ -7,7 +7,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from './db/schema';
 import { betaApplications, emailSends, keyLinks, licenses, type License } from './db/schema';
 import { keyLinkEmail, type KeyLinkKind, type Mailer } from './email';
-import { acceptanceFor, type ShippedDocs } from './acceptance';
+import { acceptanceFor } from './acceptance';
 import {
   CLAIMS_BY_TIER,
   signLicense,
@@ -44,8 +44,6 @@ export type Deps = {
   downloadUrl: string;
   /** Origin for links in emails, no trailing slash. See siteUrlFor in server.ts. */
   siteUrl: string;
-  /** Shipped terms/privacy versions and hashes; defaults to the generated manifest. */
-  shippedDocs?: ShippedDocs;
   now?: () => Date;
 };
 

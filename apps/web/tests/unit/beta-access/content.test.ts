@@ -1,18 +1,21 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
-  ATTESTATIONS,
+  attestations,
   B0,
   DISCLOSURES,
-  DOCUMENT_BLOCKS,
+  documentBlocks,
   HANDLING,
   HANDLING_INTRO,
-  LEGAL_VERSION,
   OPTIONAL_AT_APPLY,
   REQUIRED_AT_APPLY,
   SIGNING_CONSENT_ID,
   blockById,
 } from "@/lib/beta-access/content";
+
+const V = "2026-10-24";
+const DOCUMENT_BLOCKS = documentBlocks(V);
+const ATTESTATIONS = attestations(V);
 
 describe("beta-access content", () => {
   it("has every required id", () => {
@@ -28,21 +31,23 @@ describe("beta-access content", () => {
     expect(new Set(ids).size).toBe(DOCUMENT_BLOCKS.length);
   });
 
-  it("C1 names the legal version and has no placeholder", () => {
-    const c1 = blockById("C1").text;
-    expect(c1).toContain("2026-10-23");
-    expect(c1).toContain(`(version ${LEGAL_VERSION})`);
+  it("C1 names the legal version it is given, and links to the site pages", () => {
+    const c1 = blockById("C1", V).text;
+    expect(c1).toContain(`**Terms of Service** (version ${V}, astrealabs.com/aletheia/terms)`);
+    expect(c1).toContain(`**Privacy Policy** (version ${V}, astrealabs.com/aletheia/privacy)`);
+    expect(blockById("C1", "2027-02-03").text).toContain("(version 2027-02-03,");
+    expect(blockById("C1", "2027-02-03").text).not.toContain(V);
     expect(c1).not.toContain("<v>");
     expect(c1).not.toContain("`");
   });
 
   it("keeps bold markers", () => {
-    expect(blockById("B4").text).toContain("**your normal Mac backups won't include it.**");
+    expect(blockById("B4", V).text).toContain("**your normal Mac backups won't include it.**");
   });
 
   it("marks C11 optional only", () => {
-    expect(blockById("C11").optional).toBe(true);
-    expect(blockById("C11").text).toBe("Email me when new versions ship.");
+    expect(blockById("C11", V).optional).toBe(true);
+    expect(blockById("C11", V).text).toBe("Email me when new versions ship.");
     expect(ATTESTATIONS.filter((b) => b.optional).map((b) => b.id)).toEqual(["C11"]);
   });
 
@@ -61,6 +66,6 @@ describe("beta-access content", () => {
   });
 
   it("blockById throws on unknown ids", () => {
-    expect(() => blockById("Z9")).toThrow();
+    expect(() => blockById("Z9", V)).toThrow();
   });
 });
