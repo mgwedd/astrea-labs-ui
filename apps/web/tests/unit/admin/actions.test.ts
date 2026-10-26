@@ -102,7 +102,7 @@ describe('admin actions', () => {
     requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
     services.approve.mockResolvedValue({ ok: true, emailed: true });
     await expect(actions.approveApplication(valid.approveApplication)).rejects.toThrow(
-      `REDIRECT:/admin/licenses/applications/${ID}?notice=approved`,
+      `REDIRECT:/admin/applications/${ID}?notice=approved`,
     );
     expect(services.approve).toHaveBeenCalledWith(
       {},
