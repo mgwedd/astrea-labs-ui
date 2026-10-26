@@ -275,12 +275,14 @@ export type AuthorView = {
   mode: DisplayMode;
   /** Posted by an admin under their username; shown as a staff badge. */
   isStaff: boolean;
+  /** The viewer wrote this. Lets the UI offer author-only actions without exposing anyone's account. */
+  mine: boolean;
   /** The real account behind the name. Only ever set when the viewer is an admin. */
   account?: { sub: string; email: string };
 };
 
 function authorOf(row: { authorSub: string; authorName: string; authorMode: DisplayMode; authorIsStaff: boolean }, emailBySub: Map<string, string>, viewer: Viewer): AuthorView {
-  const a: AuthorView = { name: row.authorName, mode: row.authorMode, isStaff: row.authorIsStaff };
+  const a: AuthorView = { name: row.authorName, mode: row.authorMode, isStaff: row.authorIsStaff, mine: row.authorSub === viewer.sub };
   if (viewer.isAdmin) a.account = { sub: row.authorSub, email: emailBySub.get(row.authorSub) ?? '' };
   return a;
 }
@@ -365,16 +367,18 @@ export type ThreadSummary = {
   /** First 200 characters of the opening post as plain text. */
   excerpt: string;
   bookmarked: boolean;
+  /** Activity since the viewer last opened the thread (or never opened, and not their own). Drives the "new" marker. */
+  hasNew: boolean;
   /** Admin only: total views. Absent for everyone else. */
   views?: number;
 };
 
-export type ThreadSort = 'latest' | 'top' | 'unanswered';
+export type ThreadSort = 'latest' | 'new' | 'top' | 'unanswered';
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 const ListOptions = z.object({
   categorySlug: z.string().optional(),
-  sort: z.enum(['latest', 'top', 'unanswered']).default('latest'),
+  sort: z.enum(['latest', 'new', 'top', 'unanswered']).default('latest'),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(50).default(20),
 });
@@ -393,12 +397,16 @@ async function summaries(
   rows: { thread: ForumThread; categorySlug: string; categoryName: string; categoryGroup: ForumGroup }[],
 ): Promise<ThreadSummary[]> {
   const ids = rows.map((r) => r.thread.id);
-  const [emails, marks, views] = await Promise.all([
+  const [emails, marks, views, seen] = await Promise.all([
     emailsFor(deps, viewer, rows.map((r) => r.thread.authorSub)),
     ids.length ? deps.db.select({ id: forumBookmarks.threadId }).from(forumBookmarks).where(and(eq(forumBookmarks.auth0Sub, viewer.sub), inArray(forumBookmarks.threadId, ids))) : [],
     viewer.isAdmin && ids.length ? viewCountsFor(deps, ids) : new Map<string, number>(),
+    ids.length
+      ? deps.db.select({ id: forumThreadViews.threadId, at: forumThreadViews.lastViewedAt }).from(forumThreadViews).where(and(eq(forumThreadViews.auth0Sub, viewer.sub), inArray(forumThreadViews.threadId, ids)))
+      : [],
   ]);
   const marked = new Set(marks.map((m) => m.id));
+  const lastSeen = new Map(seen.map((v) => [v.id, v.at]));
   return rows.map(({ thread: t, categorySlug, categoryName, categoryGroup }) => ({
     id: t.id,
     title: t.title,
@@ -413,6 +421,7 @@ async function summaries(
     lastActivityAt: t.lastActivityAt,
     excerpt: plainText(t.bodyHtml).slice(0, 200),
     bookmarked: marked.has(t.id),
+    hasNew: lastSeen.has(t.id) ? t.lastActivityAt.getTime() > (lastSeen.get(t.id) as Date).getTime() : t.authorSub !== viewer.sub,
     ...(viewer.isAdmin ? { views: views.get(t.id) ?? 0 } : {}),
   }));
 }
@@ -430,7 +439,7 @@ export async function listThreads(deps: Deps, viewer: Viewer, options: ListThrea
   const order =
     o.sort === 'top'
       ? [desc(forumThreads.replyCount), desc(forumThreads.lastActivityAt)]
-      : o.sort === 'unanswered'
+      : o.sort === 'new' || o.sort === 'unanswered'
         ? [desc(forumThreads.createdAt)]
         : [desc(forumThreads.pinned), desc(forumThreads.lastActivityAt)];
   const [rows, [{ n }]] = await Promise.all([

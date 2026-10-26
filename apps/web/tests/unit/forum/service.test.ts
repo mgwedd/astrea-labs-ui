@@ -206,6 +206,29 @@ describe('listing', () => {
     await svc.setPinned(deps, admin, c.id, true);
     expect((await titles('latest'))[0]).toBe('Charlie thread');
   });
+  it('sorts new by creation time, ignoring later activity', async () => {
+    tick();
+    const a = await post(alice, { title: 'Alpha thread' });
+    tick();
+    await post(alice, { title: 'Bravo thread' });
+    tick();
+    await svc.createReply(deps, bob, a.id, { body: rich('<p>1</p>') });
+    const titles = (await svc.listThreads(deps, alice, { sort: 'new' })).items.map((t) => t.title);
+    expect(titles).toEqual(['Bravo thread', 'Alpha thread']);
+  });
+  it('flags threads with activity since the viewer last opened them', async () => {
+    tick();
+    const t = await post(alice);
+    const flag = async (v = bob) => (await svc.listThreads(deps, v)).items[0].hasNew;
+    expect(await flag()).toBe(true); // never opened
+    expect(await flag(alice)).toBe(false); // own thread, nothing since
+    await svc.recordView(deps, bob, t.id);
+    expect(await flag()).toBe(false);
+    tick();
+    await svc.createReply(deps, alice, t.id, { body: rich('<p>more</p>') });
+    expect(await flag()).toBe(true);
+    expect((await svc.getThread(deps, bob, t.id))?.hasNew).toBe(true);
+  });
   it('includes an excerpt and bookmark state', async () => {
     const t = await post(alice, { body: rich('<p>' + 'word '.repeat(100) + '</p>') });
     await svc.toggleBookmark(deps, alice, t.id);
@@ -281,8 +304,9 @@ describe('identity masking', () => {
     const r = await svc.createReply(deps, alice, asName.id, { body: rich('<p>reply as handle</p>') });
     const named = await svc.getThread(deps, bob, asName.id);
     const masked = await svc.getThread(deps, bob, asHandle.id);
-    expect(named?.author).toEqual({ name: 'alice', mode: 'username', isStaff: false });
-    expect(masked?.author).toEqual({ name: handle, mode: 'handle', isStaff: false });
+    expect(named?.author).toEqual({ name: 'alice', mode: 'username', isStaff: false, mine: false });
+    expect((await svc.getThread(deps, alice, asName.id))?.author.mine).toBe(true);
+    expect(masked?.author).toEqual({ name: handle, mode: 'handle', isStaff: false, mine: false });
     // The earlier thread keeps its username snapshot; the new reply uses the handle. Nothing links them.
     expect(named?.posts.find((p) => p.id === r.id)?.author.name).toBe(handle);
     const payload = JSON.stringify([masked, named, await svc.listThreads(deps, bob), await svc.searchMentionable(deps, 'a')]);
