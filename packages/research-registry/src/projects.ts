@@ -93,36 +93,6 @@ export const projects: Project[] = [
     order: 2,
   },
   {
-    slug: 'minima',
-    name: 'Minima',
-    tagline: 'Learn the math behind modern AI by doing it, not reading it.',
-    summary:
-      'A free, gamified curriculum that takes engineers from vectors to attention. Every concept is an interactive canvas lab you can poke at.',
-    description: [
-      'Minima teaches the math foundations of machine learning to people who can already code. It is organized into five worlds — foundations, linear algebra, calculus, probability, and machine learning up to neural nets and attention.',
-      'Each lesson follows the same rhythm: learn the idea, play with it in an interactive lab, then check yourself with a quiz. Drag a vector and watch a dot product flip sign; roll a ball down a loss surface; train a tiny network in the browser and watch its decision boundary form.',
-      'Light game mechanics — XP, streaks, achievements and a leaderboard — keep momentum going. The canvas engine is framework-free and the curriculum is plain data.',
-    ],
-    domains: ['ai', 'software'],
-    status: 'shipped',
-    year: 2026,
-    stack: ['Next.js', 'TypeScript', 'Canvas', 'Supabase', 'Postgres'],
-    highlights: [
-      'Five worlds, from foundations to transformers',
-      'Interactive canvas lab in every lesson',
-      'Passkey, Google or email sign-in; progress synced across devices',
-      'Self-hostable with Docker Compose',
-    ],
-    repo: { owner: 'mgwedd', name: 'ai-math' },
-    links: {
-      site: 'https://minima.astrealabs.com',
-      docs: doc('mgwedd/ai-math', 'docs/ARCHITECTURE.md'),
-    },
-    platforms: ['web'],
-    featured: true,
-    order: 3,
-  },
-  {
     slug: 'sda',
     name: 'Astrea SDA',
     tagline: 'Space domain awareness over a fast Rust API.',
@@ -177,8 +147,8 @@ export const projects: Project[] = [
     links: {},
     license: 'Proprietary',
     platforms: ['macos'],
-    featured: false,
-    order: 5,
+    featured: true,
+    order: 3,
   },
   {
     slug: 'eido',
@@ -292,12 +262,6 @@ export const technicalNotes: TechnicalNote[] = [
     projectSlug: 'groundwork',
     url: doc('KingMoonk/TRAINER', 'docs/distributed.md'),
     summary: 'Multi-machine DiLoCo training across a Tailscale network.',
-  },
-  {
-    title: 'Visual-first lessons',
-    projectSlug: 'minima',
-    url: doc('mgwedd/ai-math', 'docs/VISUAL_FIRST.md'),
-    summary: 'Why every concept in Minima starts as something you can move.',
   },
   {
     title: 'Orbit viewer',

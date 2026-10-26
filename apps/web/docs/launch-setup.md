@@ -35,7 +35,7 @@ can't be verified later.
      Nothing else.
 2. Create it, note the App ID, and generate a private key (a `.pem` file downloads).
 3. Install the app on these repos only:
-   - `mgwedd/aletheia`, `mgwedd/ai-math`, `mgwedd/astrea-sda-api`, `mgwedd/eido`
+   - `mgwedd/aletheia`, `mgwedd/astrea-sda-api`, `mgwedd/eido`
    - `KingMoonk/TRAINER`: this account is not yours, so its owner has to approve the install.
 4. Set in Vercel:
    - `GITHUB_APP_ID`: the App ID.

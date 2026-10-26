@@ -21,7 +21,7 @@ export async function middleware(request: NextRequest) {
   const querySubdomain = url.searchParams.get('subdomain')?.toLowerCase();
   
   // Extract subdomain from hostname
-  // Handles: sda.astrealabs.com, minima.localhost:3000, etc.
+  // Handles: sda.astrealabs.com, aletheia.localhost:3000, etc.
   let hostSubdomain = '';
   
   // Strip port from hostname if present

@@ -12,7 +12,6 @@ export type Repo = { owner: string; name: string };
 const REPOS: Record<string, Repo | 'TODO'> = {
   aletheia: { owner: 'mgwedd', name: 'aletheia' },
   groundwork: { owner: 'KingMoonk', name: 'TRAINER' },
-  minima: { owner: 'mgwedd', name: 'ai-math' },
   sda: { owner: 'mgwedd', name: 'astrea-sda-api' },
   eido: { owner: 'mgwedd', name: 'eido' },
   elenchos: 'TODO', // private repo: GitHub issues are not a public channel for it
