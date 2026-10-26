@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PROJECT_SUBDOMAINS } from '@astrea/research-registry';
+import { getProjectBySubdomain, PROJECT_SUBDOMAINS } from '@astrea/research-registry';
 import { gatedArea, loginUrl } from '@/lib/auth/return-to';
 import { auth0 } from '@/lib/auth0';
+import { MARKDOWN_ROUTE, markdownRewrite, wantsMarkdown } from '@/lib/markdown-route';
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl;
@@ -12,7 +13,8 @@ export async function middleware(request: NextRequest) {
     url.pathname.startsWith('/_next') ||
     url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/static') ||
-    url.pathname.includes('.')
+    url.pathname.startsWith(`${MARKDOWN_ROUTE}/`) ||
+    (url.pathname.includes('.') && !url.pathname.endsWith('.md'))
   ) {
     return NextResponse.next();
   }
@@ -41,9 +43,30 @@ export async function middleware(request: NextRequest) {
 
   const activeSubdomain = querySubdomain || hostSubdomain;
 
-  // On a real project subdomain, everything but the landing page lives on the apex.
-  if (hostSubdomain && hostWithoutPort.endsWith('astrealabs.com') && url.pathname !== '/') {
+  // A project subdomain serves its landing page and that project's markdown; the rest lives on the apex.
+  const subdomainProject = activeSubdomain ? getProjectBySubdomain(activeSubdomain) : undefined;
+  const subdomainMarkdown =
+    subdomainProject &&
+    (url.pathname === '/index.md' ||
+      url.pathname === `/projects/${subdomainProject.slug}.md` ||
+      (url.pathname === '/' && wantsMarkdown(request.headers.get('accept'))));
+  if (
+    hostSubdomain &&
+    hostWithoutPort.endsWith('astrealabs.com') &&
+    url.pathname !== '/' &&
+    !subdomainMarkdown
+  ) {
     return NextResponse.redirect(new URL(`${url.pathname}${url.search}`, 'https://astrealabs.com'));
+  }
+
+  // Markdown versions of content pages: `<page>.md`, or `Accept: text/markdown` on the page itself.
+  const markdownTarget = subdomainMarkdown
+    ? `${MARKDOWN_ROUTE}/projects/${subdomainProject.slug}`
+    : markdownRewrite(url.pathname, request.headers.get('accept'));
+  if (markdownTarget) {
+    const response = NextResponse.rewrite(new URL(markdownTarget, request.url));
+    response.headers.set('Vary', 'Accept');
+    return response;
   }
 
   // Auth0 sign-in routes (/auth/*) and the signed-in areas (session rolling) live on the apex only.

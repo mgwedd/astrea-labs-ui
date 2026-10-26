@@ -37,6 +37,18 @@ export interface MediaItem {
   loop?: boolean;
 }
 
+/**
+ * How a coding agent sets the project up. Copy every field verbatim from the
+ * project's own README; never write steps that aren't there.
+ */
+export interface ProjectSetup {
+  /** The README section the steps come from. */
+  source: string;
+  requirements: string[];
+  /** Shell commands, verbatim, in order, run from the repo root after cloning. */
+  commands: string[];
+}
+
 export interface Project {
   slug: string;
   name: string;
@@ -63,6 +75,8 @@ export interface Project {
   /** Source-available / proprietary / OSI licence, shown verbatim. */
   license?: string;
   platforms?: Platform[];
+  /** Developer setup, from the README. Omit when unknown. */
+  setup?: ProjectSetup;
   /** Screenshots, demo clips and videos, shown on the project page. First item leads. */
   media?: MediaItem[];
   featured: boolean;

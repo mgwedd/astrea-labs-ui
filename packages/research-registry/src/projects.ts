@@ -33,6 +33,14 @@ export const projects: Project[] = [
       changelog: doc('mgwedd/aletheia', 'CHANGELOG.md'),
     },
     releases: { owner: 'mgwedd', name: 'aletheia' },
+    setup: {
+      source: doc('mgwedd/aletheia', 'README.md#for-developers'),
+      requirements: ['A Mac with full Xcode 16+', 'XcodeGen: `brew install xcodegen`'],
+      commands: [
+        './scripts/build.sh',
+        "xcodebuild test -scheme Aletheia -destination 'platform=macOS'",
+      ],
+    },
     downloads: [
       {
         platform: 'macos',
@@ -73,6 +81,19 @@ export const projects: Project[] = [
       docs: doc('KingMoonk/TRAINER', 'docs/distributed.md'),
     },
     releases: { owner: 'KingMoonk', name: 'TRAINER' },
+    setup: {
+      source: doc('KingMoonk/TRAINER', 'README.md#quickstart'),
+      requirements: [
+        'Python 3.12 or newer',
+        'Node 24 and pnpm (`npm install -g pnpm`)',
+        'Tailscale, only to reach the UI from other devices or to join a cluster',
+      ],
+      commands: [
+        'make setup',
+        'make web-build',
+        '.venv/bin/python -m studio_api --bind 127.0.0.1 --port 8787',
+      ],
+    },
     downloads: [
       {
         platform: 'macos',
@@ -114,6 +135,11 @@ export const projects: Project[] = [
       'Self-hostable with Docker Compose',
     ],
     repo: { owner: 'mgwedd', name: 'ai-math' },
+    setup: {
+      source: doc('mgwedd/ai-math', 'README.md#run-it-locally'),
+      requirements: ['Docker with Compose'],
+      commands: ['docker compose up --build'],
+    },
     links: {
       site: 'https://minima.astrealabs.com',
       docs: doc('mgwedd/ai-math', 'docs/ARCHITECTURE.md'),
@@ -144,6 +170,17 @@ export const projects: Project[] = [
       'Generated SDKs in TypeScript, Python, Go, Java and Rust',
     ],
     repo: { owner: 'mgwedd', name: 'astrea-sda-api' },
+    setup: {
+      source: doc('mgwedd/astrea-sda-api', 'README.md'),
+      requirements: [
+        'Rust 1.80+ (the README badge)',
+        'Docker: `make dev-hot` runs Postgres, Redis and Caddy in containers and the API with host `cargo-watch`',
+      ],
+      commands: [
+        'make install-dev',
+        'make dev-hot',
+      ],
+    },
     subdomain: 'sda',
     links: {
       docs: 'https://mgwedd.github.io/astrea-sda-api/',
@@ -201,6 +238,14 @@ export const projects: Project[] = [
       'Local inference, no public network surface',
     ],
     repo: { owner: 'mgwedd', name: 'eido' },
+    setup: {
+      source: doc('mgwedd/eido', 'README.md#quickstart'),
+      requirements: ['Node 24 (`.node-version`)', 'pnpm 10 (pinned by `packageManager`; run `corepack enable`)'],
+      commands: [
+        'pnpm install --frozen-lockfile',
+        'pnpm --filter @eido/web dev',
+      ],
+    },
     links: {
       docs: doc('mgwedd/eido', 'docs/design.md'),
     },
