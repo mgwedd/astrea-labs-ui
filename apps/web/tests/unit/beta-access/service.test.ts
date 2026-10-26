@@ -22,6 +22,7 @@ import {
   apply,
   approve,
   auditPath,
+  checkSignedDocument,
   cleanupDrafts,
   decline,
   getApplication,
@@ -32,6 +33,7 @@ import {
   openSigningLink,
   REAPPLY_AFTER_MONTHS,
   peekSigningLink,
+  readSignedFile,
   resendKeyLink,
   resume,
   revealKey,
@@ -734,5 +736,65 @@ describe('cleanupDrafts', () => {
     advance(8 * DAY);
     expect(await resume(deps, 'jane@example.com')).toBe('sent');
     expect(await cleanupDrafts(deps)).toEqual({ deleted: 0 });
+  });
+});
+
+describe('admin signed-document review', () => {
+  /** A blob store whose reads of `path` return altered or no bytes. */
+  const tampered = (path: string, bytes: Uint8Array | null) => ({
+    ...blob,
+    get: async (p: string) => (p === path ? bytes : blob.get(p)),
+  });
+
+  it('serves the signed PDF and audit JSON when they match their recorded hashes', async () => {
+    const { documentId } = await signed();
+    const pdf = await readSignedFile(deps, documentId, 'pdf');
+    expect(pdf).toMatchObject({ ok: true, contentType: 'application/pdf' });
+    if (!pdf.ok) throw new Error('pdf');
+    expect(pdf.filename).toBe(`aletheia-beta-application-2026-11-02-${documentId.slice(0, 8)}.pdf`);
+    const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
+    expect(sha256Hex(pdf.bytes)).toBe(doc!.pdfSha256);
+
+    const audit = await readSignedFile(deps, documentId, 'audit');
+    expect(audit).toMatchObject({ ok: true, contentType: 'application/json' });
+    if (!audit.ok) throw new Error('audit');
+    expect(JSON.parse(new TextDecoder().decode(audit.bytes))).toMatchObject({ documentId, pdfSha256: doc!.pdfSha256 });
+  });
+
+  it('refuses unknown documents, missing files and files that no longer match', async () => {
+    const { documentId } = await signed();
+    const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
+    expect(await readSignedFile(deps, '00000000-0000-4000-8000-000000000000', 'pdf')).toEqual({ ok: false, reason: 'not_found' });
+    expect(await readSignedFile({ ...deps, blob: tampered(doc!.pdfPath, null) }, documentId, 'pdf')).toEqual({
+      ok: false,
+      reason: 'missing',
+    });
+    expect(
+      await readSignedFile({ ...deps, blob: tampered(doc!.auditPath, new TextEncoder().encode('{}')) }, documentId, 'audit'),
+    ).toEqual({ ok: false, reason: 'integrity' });
+  });
+
+  it('checks both files and reads the signing events from the audit trail', async () => {
+    const { documentId } = await signed();
+    const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
+    const ok = await checkSignedDocument(deps, doc!);
+    expect(ok).toMatchObject({ pdf: 'ok', audit: 'ok', signerUa: meta.ua });
+    expect(ok.events.map((e) => e.type)).toContain('signed');
+
+    const bad = await checkSignedDocument({ blob: tampered(doc!.auditPath, new TextEncoder().encode('x')) }, doc!);
+    expect(bad).toMatchObject({ pdf: 'ok', audit: 'integrity', events: [] });
+
+    const badPdf = await checkSignedDocument({ blob: tampered(doc!.pdfPath, new Uint8Array([1])) }, doc!);
+    expect(badPdf).toMatchObject({ pdf: 'integrity', audit: 'ok' });
+
+    const down = { ...blob, get: async () => Promise.reject(new Error('storage down')) };
+    expect(await checkSignedDocument({ blob: down }, doc!)).toMatchObject({ pdf: 'unavailable', audit: 'unavailable', events: [] });
+  });
+
+  it('lists every signed document for the application', async () => {
+    const { app, documentId } = await signed();
+    const data = await getApplication(deps, app!.id);
+    expect(data?.document?.id).toBe(documentId);
+    expect(data?.documents.map((d) => d.id)).toEqual([documentId]);
   });
 });
