@@ -76,7 +76,7 @@ export function ReplyCard({
             </Field>
             <div className="flex flex-wrap items-center gap-2">
               {/* TODO: confirm the sender address and where replies land. Mail goes out from the licensing sender (LICENSE_EMAIL_FROM). */}
-              <p className="mr-auto text-xs text-muted-foreground">TODO: sender address and where replies land.</p>
+              <p className="mr-auto text-xs text-muted-foreground">Sent from the licensing email address.</p>
               <SubmitButton variant="outline" disabled={message.trim() === ''}>
                 Send message
               </SubmitButton>

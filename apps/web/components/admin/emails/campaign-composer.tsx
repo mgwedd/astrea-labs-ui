@@ -122,7 +122,7 @@ export function CampaignComposer({ audiences }: { audiences: Option[] }) {
               ))}
             </SelectContent>
           </Select>
-          <FieldDescription>Only contacts opted in to this topic receive it. TODO: subscriber count.</FieldDescription>
+          <FieldDescription>Only contacts opted in to this topic receive it.</FieldDescription>
         </Field>
       </div>
 
