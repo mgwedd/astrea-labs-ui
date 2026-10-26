@@ -1,5 +1,5 @@
 /** Areas that sit behind sign-in. Only these may be a post-login target. */
-export type AuthArea = 'admin' | 'account';
+export type AuthArea = 'admin' | 'account' | 'forum';
 
 /** A path inside `area`, or `/<area>` for anything else (other areas, other hosts, `..`). */
 export function safeReturnTo(path: string | null | undefined, area: AuthArea): string {
@@ -16,6 +16,7 @@ export function loginUrl(path: string | null | undefined, area: AuthArea): strin
 export function gatedArea(pathname: string): AuthArea | null {
   if (pathname === '/admin' || pathname.startsWith('/admin/')) return 'admin';
   if (pathname === '/account/join' || pathname.startsWith('/account/join/')) return null;
+  if (pathname === '/forum' || pathname.startsWith('/forum/')) return 'forum';
   if (pathname === '/account' || pathname.startsWith('/account/')) return 'account';
   return null;
 }

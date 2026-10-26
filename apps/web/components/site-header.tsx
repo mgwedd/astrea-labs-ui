@@ -18,12 +18,15 @@ import {
   cn,
 } from '@astrea/ui';
 import { site } from '@/lib/site';
+import { useForumAccess } from './forum-nav';
 import { GitHubMark, Wordmark } from './logo';
 import { ThemeToggle } from './theme-toggle';
 import { CommandMenu, type CommandEntry } from './command-menu';
 
 export function SiteHeader({ projects, writing }: { projects: CommandEntry[]; writing: CommandEntry[] }) {
   const pathname = usePathname();
+  const forumAccess = useForumAccess();
+  const nav = forumAccess ? [...site.nav, { href: '/forum', label: 'Forum' }] : site.nav;
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -51,7 +54,7 @@ export function SiteHeader({ projects, writing }: { projects: CommandEntry[]; wr
               </SheetTitle>
             </SheetHeader>
             <nav className="mt-6 flex flex-col gap-1">
-              {site.nav.map((item) => (
+              {nav.map((item) => (
                 <SheetClose key={item.href} asChild>
                   <Button variant={isActive(item.href) ? 'secondary' : 'ghost'} className="justify-start" asChild>
                     <Link href={item.href} aria-current={isActive(item.href) ? 'page' : undefined}>
@@ -69,7 +72,7 @@ export function SiteHeader({ projects, writing }: { projects: CommandEntry[]; wr
         </Link>
 
         <nav className="hidden items-center gap-1 text-sm md:flex">
-          {site.nav.map((item) => (
+          {nav.map((item) => (
             <Link
               key={item.href}
               href={item.href}
