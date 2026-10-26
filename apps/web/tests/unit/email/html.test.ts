@@ -28,6 +28,12 @@ describe('campaign HTML sanitize', () => {
     expect(html).toContain('color:red');
   });
 
+  it('drops CSS-escaped url() in style values', () => {
+    const html = sanitizeCampaignHtml('<div style="background:u\\72l(https://x.test/t.gif);color:red">a</div>');
+    expect(html).not.toContain('x.test');
+    expect(html).toContain('color:red');
+  });
+
   it('removes <style>, <head> and <title> contents of a whole document', () => {
     const html = sanitizeCampaignHtml('<!doctype html><html><head><title>Secret</title><style>p{color:red}</style></head><body><p>Body</p></body></html>');
     expect(html).toBe('<p>Body</p>');

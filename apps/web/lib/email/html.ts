@@ -11,7 +11,8 @@ const ALLOWED_TAGS = [
 ];
 
 // Inline styles survive (email layout depends on them), but a value may not load anything or run anything.
-const SAFE_STYLE_VALUE = /^(?!.*(?:url\s*\(|expression|javascript|@import|behavior|-moz-binding))[^;{}<>]*$/i;
+// Backslashes are refused too: CSS escapes (`u\72l(`) would otherwise slip a url() past the check.
+const SAFE_STYLE_VALUE = /^(?!.*(?:url\s*\(|expression|javascript|@import|behavior|-moz-binding))[^;{}<>\\]*$/i;
 const STYLE_PROPERTIES = [
   'background', 'background-color', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left',
   'border-color', 'border-style', 'border-width', 'border-radius', 'border-collapse', 'border-spacing',

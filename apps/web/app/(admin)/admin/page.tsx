@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { CheckCheck, FileText, KeyRound, MessageSquare } from 'lucide-react';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Empty } from '@astrea/ui';
 import { formatUtc } from '@/lib/admin/format';
-import { getOverview, type QueueItem } from '@/lib/admin/overview';
+import { EXPIRY_WINDOW_DAYS, getOverview, type QueueItem } from '@/lib/admin/overview';
 import { getDb } from '@/lib/licensing/db/client';
 
 const KIND = {
@@ -49,7 +49,7 @@ export default async function AdminHome() {
       href: '/admin/licenses',
       label: 'Active licenses',
       value: o.activeLicenses,
-      hint: o.licensesExpiringSoon > 0 ? `${o.licensesExpiringSoon} expire within 30 days` : undefined,
+      hint: o.licensesExpiringSoon > 0 ? `${o.licensesExpiringSoon} expire within ${EXPIRY_WINDOW_DAYS} days` : undefined,
     },
     {
       href: '/admin/licenses',

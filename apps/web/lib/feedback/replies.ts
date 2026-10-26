@@ -13,7 +13,7 @@ export type ReplyOutcome = 'sent' | 'not_found' | 'no_email' | 'send_failed';
 /** The email the reporter gets. The address of the admin is never included. */
 export function replyEmail(input: { projectSlug: string; title: string; body: string }) {
   const project = getFeedbackProject(input.projectSlug)?.name ?? input.projectSlug;
-  const subject = `Re: ${input.title} (${project})`.slice(0, 200);
+  const subject = `Re: ${input.title.replace(/[\r\n]+/g, ' ')} (${project})`.slice(0, 200);
   const text = [input.body, '', '—', `Astrea Labs, about your feedback on ${project}: "${input.title}"`].join('\n');
   const html = `<!doctype html><html><body style="font-family:-apple-system,system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px">
 <div style="white-space:pre-wrap">${escapeHtml(input.body)}</div>

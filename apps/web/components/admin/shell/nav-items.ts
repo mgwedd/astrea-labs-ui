@@ -31,12 +31,16 @@ const TITLES: Record<string, string> = {
   documents: 'Documents',
 };
 
+// Intermediate paths with no page of their own: shown in the trail, not linked.
+const UNLINKED = new Set(['/admin/licenses/applications', '/admin/licenses/documents']);
+
 /** Breadcrumb trail for an /admin pathname. Dynamic segments (ids) show as "Detail". */
-export function breadcrumbs(pathname: string): { href: string; label: string }[] {
+export function breadcrumbs(pathname: string): { href: string; label: string; linked: boolean }[] {
   const parts = pathname.split('/').filter(Boolean).slice(1);
-  const trail = [{ href: '/admin', label: 'Overview' }];
+  const trail = [{ href: '/admin', label: 'Overview', linked: true }];
   parts.forEach((part, i) => {
-    trail.push({ href: `/admin/${parts.slice(0, i + 1).join('/')}`, label: TITLES[part] ?? 'Detail' });
+    const href = `/admin/${parts.slice(0, i + 1).join('/')}`;
+    trail.push({ href, label: TITLES[part] ?? 'Detail', linked: !UNLINKED.has(href) });
   });
   return trail;
 }

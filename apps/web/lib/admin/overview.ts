@@ -132,7 +132,7 @@ export async function getOverview(deps: Deps): Promise<Overview> {
       id: r.lid,
       title: r.email,
       meta: `${r.tier} license expiring`,
-      href: `/admin/licenses?email=${encodeURIComponent(r.email)}`,
+      href: `/admin/licenses?q=${encodeURIComponent(r.email)}`,
       at: r.expiresAt as Date, // non-null: the query only matches rows with expiresAt <= soon
       flagged: false,
     })),

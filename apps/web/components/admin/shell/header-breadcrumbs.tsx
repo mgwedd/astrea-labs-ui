@@ -18,6 +18,8 @@ export function HeaderBreadcrumbs() {
             <BreadcrumbItem>
               {i === trail.length - 1 ? (
                 <BreadcrumbPage>{c.label}</BreadcrumbPage>
+              ) : !c.linked ? (
+                <span>{c.label}</span>
               ) : (
                 <BreadcrumbLink asChild>
                   <Link href={c.href}>{c.label}</Link>
