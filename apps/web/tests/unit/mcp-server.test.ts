@@ -139,6 +139,27 @@ describe('auth on /mcp', () => {
     expect(res.status).toBe(401);
   });
 
+  it('answers get_my_account with 403 insufficient_scope for a token without account:read', async () => {
+    enableAuth();
+    const now = Math.floor(Date.now() / 1000);
+    const claims = { iss: 'https://tenant.example/', sub: 'email|abc', aud: MCP_RESOURCE.href, exp: now + 600, iat: now, scope: '' } as VerifiedAccessTokenClaims;
+    const res = await handleMcpRequest(
+      withHost(new Request(URL_MCP, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer mcp-token',
+          'content-type': 'application/json',
+          accept: 'application/json, text/event-stream',
+          'mcp-protocol-version': '2025-06-18',
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'get_my_account', arguments: {} } }),
+      })),
+      { verifier: auth0Verifier({ verifyAccessToken: async () => claims }) },
+    );
+    expect(res.status).toBe(403);
+    expect(res.headers.get('www-authenticate')).toContain('insufficient_scope');
+  });
+
   it('rejects a foreign Host header', async () => {
     const res = await handleMcpRequest(withHost(new Request('http://evil.example/mcp', { method: 'POST', body: '{}' })));
     expect(res.status).toBe(403);
