@@ -27,4 +27,11 @@ describe('gatedArea', () => {
     expect(gatedArea('/accounting')).toBeNull();
     expect(gatedArea('/writing')).toBeNull();
   });
+  it('gates /forum and keeps its sign-in return inside it', () => {
+    expect(gatedArea('/forum')).toBe('forum');
+    expect(gatedArea('/forum/bookmarks')).toBe('forum');
+    expect(gatedArea('/forumla')).toBeNull();
+    expect(loginUrl('/forum/new', 'forum')).toBe('/auth/login?returnTo=%2Fforum%2Fnew');
+    expect(safeReturnTo('/admin', 'forum')).toBe('/forum');
+  });
 });
