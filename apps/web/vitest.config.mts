@@ -14,5 +14,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/unit/**/*.{test,spec}.{ts,tsx}'],
+    // PGlite migrations in beforeEach slow down under full-suite load.
+    hookTimeout: 30_000,
   },
 });

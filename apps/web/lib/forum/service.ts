@@ -52,6 +52,7 @@ export class ForumError extends Error {
 const nowOf = (d: Pick<Deps, 'now'>) => d.now?.() ?? new Date();
 const randomOf = (d: Pick<Deps, 'random'>) => d.random ?? Math.random;
 const HOUR_MS = 3_600_000;
+const isUuid = (v: string) => z.string().uuid().safeParse(v).success;
 
 function parse<T extends z.ZodType>(schemaZ: T, input: unknown): z.infer<T> {
   const r = schemaZ.safeParse(input);
@@ -596,6 +597,7 @@ export async function createReply(deps: Deps, viewer: Viewer, threadId: string, 
 
 /** Mark (or clear, with `postId` null) the post that answers the thread. The thread's author or an admin only. */
 export async function markSolution(deps: Deps, viewer: Viewer, threadId: string, postId: string | null): Promise<void> {
+  if (!isUuid(threadId) || (postId !== null && !isUuid(postId))) throw new ForumError('not_found', 'No such thread');
   const [t] = await deps.db.select().from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
   if (!t) throw new ForumError('not_found', 'No such thread');
   if (!viewer.isAdmin && t.authorSub !== viewer.sub) throw new ForumError('forbidden', 'Only the thread author can mark an answer');
@@ -609,6 +611,7 @@ export async function markSolution(deps: Deps, viewer: Viewer, threadId: string,
 /** Add or remove the viewer's reaction on the opening post (targetId = thread id) or a reply (post id). Returns true when now set. */
 export async function toggleReaction(deps: Deps, viewer: Viewer, threadId: string, targetId: string, emoji: string): Promise<boolean> {
   if (!(REACTION_EMOJI as readonly string[]).includes(emoji)) throw new ForumError('invalid', 'Unsupported reaction');
+  if (!isUuid(threadId) || !isUuid(targetId)) throw new ForumError('not_found', 'No such post');
   if (targetId !== threadId) {
     const [p] = await deps.db.select({ id: forumPosts.id }).from(forumPosts).where(and(eq(forumPosts.id, targetId), eq(forumPosts.threadId, threadId))).limit(1);
     if (!p) throw new ForumError('not_found', 'No such post');

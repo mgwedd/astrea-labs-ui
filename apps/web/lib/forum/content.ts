@@ -11,6 +11,7 @@ export function sanitizeBody(html: string): string {
     allowedTags: ALLOWED_TAGS,
     allowedAttributes: { a: ['href', 'title', 'rel'] },
     allowedSchemes: ['https', 'mailto'],
+    allowProtocolRelative: false,
     disallowedTagsMode: 'discard',
     transformTags: {
       h1: 'h2',
