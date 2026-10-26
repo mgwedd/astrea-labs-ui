@@ -62,8 +62,8 @@ const nowS = () => Math.floor(clock.getTime() / 1000);
 const linkIn = (m: Mail) => m.text.match(/\/aletheia\/beta\/key\?t=([\w-]{43})/)![1];
 
 /** Opens the key link in an email and returns the key it reveals. */
-async function keyIn(m: Mail): Promise<string> {
-  const r = await revealKeyLink(deps, linkIn(m));
+async function keyIn(m: Mail, attest?: () => Promise<boolean>): Promise<string> {
+  const r = await revealKeyLink(deps, linkIn(m), attest);
   if (!r.ok) throw new Error(`key link ${r.reason}`);
   return r.token;
 }
@@ -78,6 +78,14 @@ async function issueExpiring(email: string, days: number) {
   const first = await issue(email);
   return (await reissueLicense(deps, first.lid, { expiresAt: new Date(clock.getTime() + days * DAY) }))!;
 }
+
+describe('claims in minted tokens', () => {
+  it('a beta token carries the fixed claims and no acc without an agreement', async () => {
+    const r = verifyLicense(tokenFor(await issue('plain@example.com'), key), pub, nowS());
+    expect(r.ok && r.payload.cl).toEqual(['no-baa', 'beta-no-sla']);
+    expect(r.ok && 'acc' in r.payload).toBe(false);
+  });
+});
 
 describe('issueLicense', () => {
   it('defaults to a 12-month expiry when none is passed', async () => {
@@ -130,7 +138,7 @@ describe('requestLicense (resend only)', () => {
 
   it('does not resend to an address whose license was revoked', async () => {
     const row = await issue('ann@example.com');
-    await revokeLicense(deps, row.lid, 'abuse');
+    await revokeLicense(deps, row.lid, 'abuse', 'admin@astrealabs.test');
     expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('blocked');
     expect(sent).toHaveLength(0);
     expect(await deps.db.select().from(licenses)).toHaveLength(1);
@@ -194,7 +202,7 @@ describe('key links', () => {
   it('refuse a revoked license, and unknown or malformed tokens', async () => {
     const row = await issue('ann@example.com');
     await requestLicense(deps, { email: 'ann@example.com' });
-    await revokeLicense(deps, row.lid, 'abuse');
+    await revokeLicense(deps, row.lid, 'abuse', 'admin@astrealabs.test');
     expect(await revealKeyLink(deps, linkIn(sent[0]))).toEqual({ ok: false, reason: 'invalid' });
     expect(await revealKeyLink(deps, 'A'.repeat(43))).toEqual({ ok: false, reason: 'invalid' });
     expect(await revealKeyLink(deps, 'short')).toEqual({ ok: false, reason: 'invalid' });
@@ -250,7 +258,7 @@ describe('reissue and renewal', () => {
     expect(sent.at(-1)!.to).toBe('soon@example.com');
     expect(sent.at(-1)!.subject).toMatch(/renewed/i);
     expect(sent.at(-1)!.text).not.toContain(LICENSE_PREFIX + '.');
-    const renewed = await keyIn(sent.at(-1)!);
+    const renewed = await keyIn(sent.at(-1)!, async () => true);
     const r = verifyLicense(renewed, pub, nowS());
     expect(r.ok && r.payload.exp! - nowS()).toBe(90 * 86_400);
 
@@ -264,7 +272,7 @@ describe('reissue and renewal', () => {
     const old = await issueExpiring('ann@example.com', 90);
     clock = new Date(clock.getTime() + 80 * DAY);
     expect((await runRenewals(deps)).renewed).toBe(1);
-    await revokeLicense(deps, old.lid, 'abuse');
+    await revokeLicense(deps, old.lid, 'abuse', 'admin@astrealabs.test');
     const rows = await deps.db.select().from(licenses);
     expect(rows).toHaveLength(3); // original (already replaced), expiring reissue, renewal
     expect(rows.filter((r) => r.lid !== old.lid && r.replacedBy !== old.lid).every((r) => r.revokedAt)).toBe(true);
@@ -290,6 +298,66 @@ describe('reissue and renewal', () => {
     expect(secondAfter.replacedBy).toBe(third!.lid);
   });
 
+  it('a renewal shows its key only after re-attestation, without consuming the link before', async () => {
+    await issueExpiring('ann@example.com', 90);
+    clock = new Date(clock.getTime() + 80 * DAY);
+    expect((await runRenewals(deps)).renewed).toBe(1);
+    expect(sent.at(-1)!.text).toMatch(/confirm that your professional license is still active/);
+    const t = linkIn(sent.at(-1)!);
+
+    expect(await revealKeyLink(deps, t)).toEqual({ ok: false, reason: 'attestation_required' });
+    expect(await revealKeyLink(deps, t, async () => false)).toEqual({ ok: false, reason: 'attestation_invalid' });
+    const [before] = await deps.db.select().from(licenses).where(eq(licenses.attestationRequired, true));
+    expect(before.attestedAt).toBeNull();
+
+    let calls = 0;
+    const ok = await revealKeyLink(deps, t, async () => (calls++, true));
+    expect(ok.ok).toBe(true);
+    expect(calls).toBe(1);
+    const [after] = await deps.db.select().from(licenses).where(eq(licenses.lid, before.lid));
+    expect(after.attestedAt).toEqual(clock);
+    expect(await revealKeyLink(deps, t, async () => true)).toEqual({ ok: false, reason: 'used' });
+
+    // Once attested, a resent link shows the key without asking again.
+    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('resent');
+    expect((await revealKeyLink(deps, linkIn(sent.at(-1)!))).ok).toBe(true);
+  });
+
+  it('a reissue keeps an outstanding re-attestation, and drops a done one', async () => {
+    await issueExpiring('ann@example.com', 90);
+    clock = new Date(clock.getTime() + 80 * DAY);
+    await runRenewals(deps);
+    const [renewal] = await deps.db.select().from(licenses).where(eq(licenses.attestationRequired, true));
+    const lost = await reissueLicense(deps, renewal.lid, { revokeOld: true, reason: 'lost', by: 'admin@astrealabs.test' });
+    expect(lost!.attestationRequired).toBe(true);
+    expect(await revealKeyLink(deps, linkIn(sent.at(-1)!))).toEqual({ ok: false, reason: 'attestation_required' });
+    expect(await keyIn(sent.at(-1)!, async () => true)).toBe(tokenFor(lost!, key));
+
+    const again = await reissueLicense(deps, lost!.lid);
+    expect(again!.attestationRequired).toBe(false);
+    expect((await revealKeyLink(deps, linkIn(sent.at(-1)!))).ok).toBe(true);
+  });
+
+  it('a non-renewal license never asks for re-attestation', async () => {
+    await issue('ann@example.com');
+    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('resent');
+    let called = false;
+    expect((await revealKeyLink(deps, linkIn(sent[0]), async () => (called = true))).ok).toBe(true);
+    expect(called).toBe(false);
+  });
+
+  it('records who revoked a license', async () => {
+    const a = await issue('ann@example.com');
+    await revokeLicense(deps, a.lid, 'abuse', 'michael@astrealabs.test');
+    const [row] = await deps.db.select().from(licenses).where(eq(licenses.lid, a.lid));
+    expect(row).toMatchObject({ revokedReason: 'abuse', revokedBy: 'michael@astrealabs.test' });
+
+    const b = await issue('bob@example.com');
+    await reissueLicense(deps, b.lid, { revokeOld: true, reason: 'lost device', by: 'chris@astrealabs.test' });
+    const [old] = await deps.db.select().from(licenses).where(eq(licenses.lid, b.lid));
+    expect(old.revokedBy).toBe('chris@astrealabs.test');
+  });
+
   it('logs each send for rate limiting', async () => {
     await issue('ann@example.com');
     await requestLicense(deps, { email: 'ann@example.com' });
@@ -302,7 +370,7 @@ describe('buildRevocationList', () => {
   it('lists revoked, unexpired lids, signed, with an hour-bucketed iat', async () => {
     const a = await issueExpiring('a@example.com', 90);
     await issue('b@example.com');
-    await revokeLicense(deps, a.lid, 'test');
+    await revokeLicense(deps, a.lid, 'test', 'admin@astrealabs.test');
 
     const body = await buildRevocationList(deps);
     const r = verifySigned<RevocationsPayload>(REVOCATIONS_PREFIX, body, pub);
@@ -320,7 +388,7 @@ describe('buildRevocationList', () => {
     expect(later.ok && later.payload.revoked).toEqual([]); // expired entries are pruned
 
     const [b] = await deps.db.select().from(licenses).where(eq(licenses.email, 'b@example.com'));
-    await revokeLicense(deps, b.lid, 'test');
+    await revokeLicense(deps, b.lid, 'test', 'admin@astrealabs.test');
     clock = new Date(clock.getTime() + 5000 * DAY);
     const much = verifySigned<RevocationsPayload>(REVOCATIONS_PREFIX, await buildRevocationList(deps), pub);
     expect(much.ok && much.payload.revoked).toEqual([b.lid]); // non-expiring entries stay

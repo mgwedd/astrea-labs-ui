@@ -16,8 +16,12 @@ export const licenses = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }), // token exp; null = never expires
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     revokedReason: text('revoked_reason'),
+    revokedBy: text('revoked_by'), // who revoked it, as given to the admin API
     replacedBy: uuid('replaced_by'), // lid of the license that superseded this one
     renewalSentAt: timestamp('renewal_sent_at', { withTimezone: true }),
+    // Renewals: the key is shown only after the licensee confirms C2 again.
+    attestationRequired: boolean('attestation_required').notNull().default(false),
+    attestedAt: timestamp('attested_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('licenses_email_idx').on(t.email), index('licenses_expires_at_idx').on(t.expiresAt)],
@@ -46,6 +50,9 @@ export type License = typeof licenses.$inferSelect;
 /** One consent as ticked: text version, SHA-256 of the exact text, when ticked (ISO, UTC). */
 export type ConsentRecord = { id: string; version: string; sha256: string; tickedAt: string };
 
+/** A document the applicant accepted at the C1 tick: which one, its version, and the SHA-256 of its exact bytes. */
+export type AcceptedDoc = { d: 'terms' | 'privacy'; v: string; h: string };
+
 /** Where the empty signature block sits in the unsigned PDF, so signing can stamp it. */
 export type SignatureBlock = {
   page: number;
@@ -63,6 +70,9 @@ export const betaApplications = pgTable(
     email: text('email').notNull(), // lowercased
     answers: jsonb('answers').notNull(),
     consents: jsonb('consents').$type<ConsentRecord[]>().notNull(),
+    // The terms and privacy documents as they were when C1 was ticked. Null on
+    // applications from before this was recorded.
+    acceptedDocs: jsonb('accepted_docs').$type<AcceptedDoc[]>(),
     updatesOptIn: boolean('updates_opt_in').notNull().default(false),
     status: text('status', { enum: ['draft', 'submitted', 'approved', 'declined'] }).notNull().default('draft'),
     // Signing link (single use). Only its SHA-256 is stored.

@@ -8,6 +8,7 @@ import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
+  hashDocument,
   rawPublicKey,
   signLicense,
   signRevocations,
@@ -37,6 +38,27 @@ const expired = license(testKey, PAST_IAT, 'expired@example.com');
 // No exp, and issued in the past: valid at any later clock.
 const perpetual = license(testKey, PAST_IAT, 'perpetual@example.com', false);
 const unknownKid = license(strayKey, FAR_IAT, 'unknown-kid@example.com');
+// Same shape as a freshly minted beta token: accepted documents plus fixed claims.
+const FIXTURE_DOCS = {
+  terms: { version: '2100-01-01', text: 'Fixture terms of service.\n' },
+  privacy: { version: '2100-01-01', text: 'Fixture privacy policy.\n' },
+};
+const ACCEPTED_AT = FAR_IAT - 3600;
+const withTermsPayload: LicensePayload = {
+  v: 1,
+  kid: testKey.kid,
+  lid: randomUUID(),
+  sub: 'with-terms@example.com',
+  tier: 'beta',
+  iat: FAR_IAT,
+  exp: FAR_IAT + 90 * DAY,
+  acc: [
+    { d: 'terms', v: FIXTURE_DOCS.terms.version, h: hashDocument(FIXTURE_DOCS.terms.text), at: ACCEPTED_AT },
+    { d: 'privacy', v: FIXTURE_DOCS.privacy.version, h: hashDocument(FIXTURE_DOCS.privacy.text), at: ACCEPTED_AT },
+  ],
+  cl: ['no-baa', 'beta-no-sla'],
+};
+const withTerms = signLicense(withTermsPayload, testKey);
 const revoked = license(testKey, FAR_IAT, 'revoked@example.com');
 
 // Flip one byte of the decoded signature, then re-encode.
@@ -52,17 +74,24 @@ const revocations = signRevocations(
 );
 
 const fixtures = {
-  note: 'Test-only keys. Pin the test clock to `now` (2100-01-02). Regenerate with scripts/licensing/make-fixtures.ts.',
+  note: 'Test-only keys. Pin the test clock to `now` (2100-01-02). `valid` has no acc/cl (old shape); `withTerms` has both. Regenerate with scripts/licensing/make-fixtures.ts.',
   now: revocationsIat,
   publicKeys: { [testKey.kid]: rawPublicKey(testKey.privateKey) },
   tokens: {
     valid: valid.token,
+    withTerms,
     expired: expired.token,
     perpetual: perpetual.token,
     badSignature,
     unknownKid: unknownKid.token,
     revoked: revoked.token,
   },
+  // Documents behind withTerms.acc: h is the SHA-256 of `text` as UTF-8 bytes.
+  documents: {
+    terms: { ...FIXTURE_DOCS.terms, sha256: hashDocument(FIXTURE_DOCS.terms.text) },
+    privacy: { ...FIXTURE_DOCS.privacy, sha256: hashDocument(FIXTURE_DOCS.privacy.text) },
+  },
+  withTermsPayload,
   revokedLid: revoked.lid,
   revocations,
 };

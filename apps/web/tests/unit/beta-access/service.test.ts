@@ -13,7 +13,9 @@ import { addMonths, requestLicense, type Db } from '@/lib/licensing/service';
 import { LICENSE_PREFIX, publicKeyFromRaw, rawPublicKey, verifyLicense } from '@/lib/licensing/token';
 import { applicationInputSchema } from '@/lib/beta-access/answers';
 import { memoryBlobStore, type BlobStore } from '@/lib/agreements/signed/blob';
-import { REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
+import { ALETHEIA_RENEWAL, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
+import type { LegalDocs } from '@/lib/aletheia-docs';
+import { agreementAcceptances } from '@/lib/agreements/db/schema';
 import { sha256Hex } from '@/lib/beta-access/hash';
 import { devPublicKey, devSealer, sealMessage } from '@/lib/agreements/signed/seal';
 import {
@@ -28,6 +30,7 @@ import {
   BETA_LICENSE_MONTHS,
   listApplications,
   openSigningLink,
+  REAPPLY_AFTER_MONTHS,
   peekSigningLink,
   resendKeyLink,
   resume,
@@ -41,6 +44,13 @@ import {
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
+const LEGAL_VERSION = '2026-10-24';
+const legalAt = (version: string): LegalDocs => ({
+  version,
+  terms: { version, sha256: 'b'.repeat(64), markdown: '' },
+  privacy: { version, sha256: 'c'.repeat(64), markdown: '' },
+});
+let docs: LegalDocs;
 const key = { kid: 'test-1', privateKey: generateKeyPairSync('ed25519').privateKey };
 const pub = { 'test-1': publicKeyFromRaw(rawPublicKey(key.privateKey)) };
 
@@ -56,6 +66,7 @@ beforeEach(async () => {
   sent = [];
   clock = new Date('2026-11-02T09:00:00.000Z');
   failPut = null;
+  docs = legalAt(LEGAL_VERSION);
   const inner = memoryBlobStore();
   blob = {
     put: async (p, bytes, type) => {
@@ -75,6 +86,7 @@ beforeEach(async () => {
     blob,
     sealer: devSealer(),
     reviewEmail: 'review@astrealabs.test',
+    legalDocs: async () => docs,
   };
 });
 
@@ -85,6 +97,7 @@ function input(over: { email?: string; fullName?: string; consents?: Record<stri
   const at = clock.toISOString();
   const consents = over.consents ?? Object.fromEntries([...REQUIRED_AT_APPLY, ...(over.c11 ? ['C11'] : [])].map((id) => [id, at]));
   return applicationInputSchema.parse({
+    legalVersion: LEGAL_VERSION,
     answers: {
       fullName: over.fullName ?? 'Jane Doe',
       email: over.email ?? 'Jane@Example.com',
@@ -443,6 +456,87 @@ describe('append-only evidence', () => {
   });
 });
 
+describe('approve and terms acceptance', () => {
+  async function tokenPayload() {
+    const { app, documentId } = await signed();
+    const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
+    const r = await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    if (!r.ok) throw new Error(r.error);
+    const k = await revealKey(deps, keyLinkIn(lastTo('jane@example.com')));
+    if (!k.ok) throw new Error(k.reason);
+    const v = verifyLicense(k.token, pub, Math.floor(clock.getTime() / 1000));
+    return { v, c1: doc.blocks.find((b) => b.id === 'C1')!, appId: app.id };
+  }
+
+  it('stores the documents as fetched when the applicant applied', async () => {
+    const { app } = await signed();
+    expect(app.acceptedDocs).toEqual([
+      { d: 'terms', v: LEGAL_VERSION, h: 'b'.repeat(64) },
+      { d: 'privacy', v: LEGAL_VERSION, h: 'c'.repeat(64) },
+    ]);
+  });
+
+  it('the minted token carries the accepted versions, hashes and the C1 tick time', async () => {
+    const { v, c1 } = await tokenPayload();
+    const at = Math.floor(Date.parse(c1.tickedAt) / 1000);
+    expect(v.ok && v.payload.acc).toEqual([
+      { d: 'terms', v: LEGAL_VERSION, h: 'b'.repeat(64), at },
+      { d: 'privacy', v: LEGAL_VERSION, h: 'c'.repeat(64), at },
+    ]);
+    expect(v.ok && v.payload.cl).toEqual(['no-baa', 'beta-no-sla']);
+  });
+
+  it('keeps the recorded documents when the live ones change later', async () => {
+    const { app } = await signed();
+    docs = legalAt('2027-01-01');
+    await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    const k = await revealKey(deps, keyLinkIn(lastTo('jane@example.com')));
+    if (!k.ok) throw new Error(k.reason);
+    const v = verifyLicense(k.token, pub, Math.floor(clock.getTime() / 1000));
+    expect(v.ok && v.payload.acc?.map((a) => a.v)).toEqual([LEGAL_VERSION, LEGAL_VERSION]);
+  });
+
+  it('records nothing for an application from before the documents were recorded', async () => {
+    const { app } = await signed();
+    await deps.db.update(betaApplications).set({ acceptedDocs: null }).where(eq(betaApplications.id, app.id));
+    await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    const k = await revealKey(deps, keyLinkIn(lastTo('jane@example.com')));
+    if (!k.ok) throw new Error(k.reason);
+    const v = verifyLicense(k.token, pub, Math.floor(clock.getTime() / 1000));
+    expect(v.ok && 'acc' in v.payload).toBe(false);
+  });
+});
+
+describe('terms version', () => {
+  it('rejects an application that names a version other than the current one', async () => {
+    docs = legalAt('2026-10-26');
+    expect(await apply(deps, input())).toEqual({ invalid: expect.stringContaining('were updated') });
+    expect(await deps.db.select().from(betaApplications)).toHaveLength(0);
+  });
+
+  it('fails closed when the documents cannot be fetched', async () => {
+    deps.legalDocs = async () => {
+      throw new Error('offline');
+    };
+    await expect(apply(deps, input())).rejects.toThrow('offline');
+    expect(await deps.db.select().from(betaApplications)).toHaveLength(0);
+  });
+
+  it('expires the signing link when the version changed after the applicant ticked C1', async () => {
+    expect(await apply(deps, input())).toBe('sent');
+    docs = legalAt('2026-10-26');
+    expect(await openSigningLink(deps, signLinkIn(sent.at(-1)!))).toEqual({ ok: false, reason: 'expired' });
+  });
+
+  it('refuses to sign when the version changed after the document was made', async () => {
+    const session = await readyToSign();
+    docs = legalAt('2026-10-26');
+    const r = await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta);
+    expect(r).toEqual({ ok: false, error: 'invalid' });
+    expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
+  });
+});
+
 describe('approve', () => {
   it('records the review, issues a 6-month license and emails a key link that reveals it once', async () => {
     const { app, documentId } = await signed({ c11: true });
@@ -532,6 +626,69 @@ describe('decline', () => {
     const before = sent.length;
     expect(await apply(deps, input())).toBe('exists');
     expect(sent).toHaveLength(before);
+  });
+
+  it('says when to reapply and how to ask for deletion', async () => {
+    const { app } = await signed();
+    await decline(deps, { applicationId: app.id, reviewer: 'mw' });
+    const mail = lastTo('jane@example.com');
+    expect(REAPPLY_AFTER_MONTHS).toBe(3);
+    expect(mail.text).toContain('You can apply again from February 2, 2027.');
+    expect(mail.text).toContain('email support@astrealabs.com');
+    expect(mail.html).toContain('mailto:support@astrealabs.com');
+  });
+
+  it('lets a declined address apply again as a new application after 3 months', async () => {
+    const { app } = await signed();
+    await decline(deps, { applicationId: app.id, reviewer: 'mw' });
+    // Nov 2 + 3 months = Feb 2: 92 days.
+    advance(92 * DAY - MIN);
+    expect(await apply(deps, input())).toBe('exists');
+    advance(MIN);
+    expect(await apply(deps, input())).toBe('sent');
+    const rows = await deps.db.select().from(betaApplications);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === app.id)!.status).toBe('declined');
+    expect(rows.find((r) => r.id !== app.id)!.status).toBe('draft');
+    // A submitted or approved application still can't be replaced.
+    const { app: other } = await signed({ email: 'sam@example.com' });
+    await approve(deps, { applicationId: other.id, reviewer: 'mw', licenseCheck });
+    advance(365 * DAY);
+    expect(await apply(deps, input({ email: 'sam@example.com' }))).toBe('exists');
+  });
+});
+
+describe('renewal re-attestation on the key page', () => {
+  it('asks for C2 again, records it against the license email, then shows the key', async () => {
+    const { app } = await signed();
+    const r = await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    if (!r.ok) throw new Error(r.error);
+    // As runRenewals leaves a renewal.
+    await deps.db.update(licenses).set({ attestationRequired: true }).where(eq(licenses.lid, r.lid!));
+    const link = keyLinkIn(lastTo('jane@example.com'));
+
+    expect(await revealKey(deps, link)).toEqual({ ok: false, reason: 'attestation_required' });
+    const shownAt = clock.toISOString();
+    advance(MIN);
+    const bad = { version: 'old', shownAt, tickedAt: { C2: clock.toISOString() } };
+    expect(await revealKey(deps, link, bad, meta)).toEqual({ ok: false, reason: 'attestation_invalid' });
+    expect(await revealKey(deps, link, { ...bad, tickedAt: {} , version: ALETHEIA_RENEWAL.version }, meta)).toEqual({
+      ok: false,
+      reason: 'attestation_invalid',
+    });
+
+    const good = { version: ALETHEIA_RENEWAL.version, shownAt, tickedAt: { C2: clock.toISOString() } };
+    const k = await revealKey(deps, link, good, meta);
+    expect(k.ok).toBe(true);
+    const rows = await deps.db.select().from(agreementAcceptances);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      agreementId: 'aletheia-beta-renewal',
+      subject: 'jane@example.com',
+      subjectVerified: true,
+      ip: meta.ip,
+    });
+    expect(await revealKey(deps, link, good, meta)).toEqual({ ok: false, reason: 'used' });
   });
 });
 

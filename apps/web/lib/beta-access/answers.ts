@@ -216,6 +216,8 @@ export type Answers = z.infer<typeof answersSchema>;
 const allowedConsentIds = new Set([...REQUIRED_AT_APPLY, ...OPTIONAL_AT_APPLY]);
 
 export const applicationInputSchema = z.object({
+  /** The Terms/Privacy version C1 named when it was shown. */
+  legalVersion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   answers: answersSchema,
   consents: z
     .record(z.string(), z.iso.datetime({ error: "Consent time must be an ISO datetime." }))

@@ -3,18 +3,19 @@
 import { OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY, blockById } from '@/lib/beta-access/content';
 import { ConsentCheckbox } from '../consent-checkbox';
 
-const REQUIRED = REQUIRED_AT_APPLY.filter((id) => id.startsWith('C')).map(blockById);
-const OPTIONAL = OPTIONAL_AT_APPLY.map(blockById);
-
 export function StepAttestations({
+  legalVersion,
   consents,
   setConsent,
   errors,
 }: {
+  legalVersion: string;
   consents: Record<string, string>;
   setConsent: (id: string, ticked: boolean) => void;
   errors: Record<string, string>;
 }) {
+  const REQUIRED = REQUIRED_AT_APPLY.filter((id) => id.startsWith('C')).map((id) => blockById(id, legalVersion));
+  const OPTIONAL = OPTIONAL_AT_APPLY.map((id) => blockById(id, legalVersion));
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-muted-foreground">

@@ -1,17 +1,57 @@
 {
-  "note": "Test-only keys. Pin the test clock to `now` (2100-01-02). Regenerate with scripts/licensing/make-fixtures.ts.",
+  "note": "Test-only keys. Pin the test clock to `now` (2100-01-02). `valid` has no acc/cl (old shape); `withTerms` has both. Regenerate with scripts/licensing/make-fixtures.ts.",
   "now": 4102531200,
   "publicKeys": {
-    "test-1": "xPivXfw4qunESwYYv/pYCUU61IdGTiIU4g80vSYdoZA="
+    "test-1": "uUAGbrG9n6vmNADsQs6x1nVRq0x0LQ3VhaQUKEQj01I="
   },
   "tokens": {
-    "valid": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiI1NDMxN2U4ZS1hZTFiLTQ3YWQtODE3Ni03YjZiNWEyNTdmMDciLCJzdWIiOiJ2YWxpZEBleGFtcGxlLmNvbSIsInRpZXIiOiJiZXRhIiwiaWF0Ijo0MTAyNDQ0ODAwLCJleHAiOjQxMTAyMjA4MDB9.uWb2X0EOEei-UGEFvaw6F28QeRe0zheo53MTpMKnMjRNbeLuGGJdPDVFwN--9q4hUDef2TuXibLVEACYyNBiBA",
-    "expired": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiJhNmU2M2E4OS03MTkxLTRlMzktOTljNS00Mzk2MTdlOTVkZmQiLCJzdWIiOiJleHBpcmVkQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjE3MzU2ODk2MDAsImV4cCI6MTc0MzQ2NTYwMH0.PhuMCHAg_vChoheaf2eo1lCoR3Ka2XeYVqWk5GsLC7SiogKq6r7xv_CEN83-j3ucUxt9mR6fKvGj2jumUxmLCw",
-    "perpetual": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiIwNDRhNTdjOS1lZDAyLTRjMzctOWYxMC0wMDYzZGFkODQ4NjkiLCJzdWIiOiJwZXJwZXR1YWxAZXhhbXBsZS5jb20iLCJ0aWVyIjoiYmV0YSIsImlhdCI6MTczNTY4OTYwMH0.RaB7PrIqkdp7CHv6LmULgsTxcghzJJd4AZmTIA1x6dyqePsnXnosNA5oFwLUGPMXn4oHeQeP05flHPJLdD1VCg",
-    "badSignature": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiJmOWU0YTM1MS03N2Y5LTQxOTktODE0OS00Y2Y1ZDVmYTBmNGYiLCJzdWIiOiJiYWQtc2lnbmF0dXJlQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjQxMDI0NDQ4MDAsImV4cCI6NDExMDIyMDgwMH0.wJDvKjzc3tFqkz7FdO92getgKVEtl25Nh9tOSAMbWhjTHrKxXjdNJON52Luwm3yJ9gj0eJjnvl-qdnE76qvYBQ",
-    "unknownKid": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LXVua25vd24iLCJsaWQiOiI0YzZmZGFjYy01ZmFiLTQ0ODgtYmE4ZS1jZjYzOGRhNGY2MDQiLCJzdWIiOiJ1bmtub3duLWtpZEBleGFtcGxlLmNvbSIsInRpZXIiOiJiZXRhIiwiaWF0Ijo0MTAyNDQ0ODAwLCJleHAiOjQxMTAyMjA4MDB9.XxrZghROuBTYPbyUVNSxo6KKwPaYZPU4nP4Mrm45XeYGHsl55vXgjt7eizTz5LETMgFhCc6vYO7PIqe8jF4KBQ",
-    "revoked": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiI3OGRjMWI0Mi02ZTBlLTQyYzQtYTEzNS00NjRlMjI5OWQ4MmYiLCJzdWIiOiJyZXZva2VkQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjQxMDI0NDQ4MDAsImV4cCI6NDExMDIyMDgwMH0.SielvFbfGd0vy_AFXzreya3Dg06xa_8E1mPWU6Gt5hDqvr1DRmJLVcQvlZt4Zf1_JdnxWmr49wetgJ6BSCEHDQ"
+    "valid": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiI5YTNhNDE2ZS1mZDY0LTQ0NzQtODMxNS0wMjViNGRlYWM3N2IiLCJzdWIiOiJ2YWxpZEBleGFtcGxlLmNvbSIsInRpZXIiOiJiZXRhIiwiaWF0Ijo0MTAyNDQ0ODAwLCJleHAiOjQxMTAyMjA4MDB9.CPAnZA35h8DbgWyxH2UWtjbdAzHSiSuBkesMhpTWutjP2e4spYhYTBhTGdzcCBv2ftQhn0Jzbe7hiSffdkVGBg",
+    "withTerms": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiI2ZWI1NjIyNi0yYzM5LTQ1ODItYmFlOS0yZjZhNTE3OGE0ZjIiLCJzdWIiOiJ3aXRoLXRlcm1zQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjQxMDI0NDQ4MDAsImV4cCI6NDExMDIyMDgwMCwiYWNjIjpbeyJkIjoidGVybXMiLCJ2IjoiMjEwMC0wMS0wMSIsImgiOiI4ZTJkMGM5MTljZGZlMTZlY2Q0YmM0NTRiZmRiYWQ3ZGUzZjQ3MTlmNTMxODdmNDYyMTZkNzdlNDY4ZGFmMjA4IiwiYXQiOjQxMDI0NDEyMDB9LHsiZCI6InByaXZhY3kiLCJ2IjoiMjEwMC0wMS0wMSIsImgiOiI5ZjRkN2Q5Y2MzMDlhZWRmNDBmZGUyZmU1MWI2MzEwMGY4MGE3NDA1NWRlYWMzOTQyOTIwODkyYjQ0Yjg0ZmYzIiwiYXQiOjQxMDI0NDEyMDB9XSwiY2wiOlsibm8tYmFhIiwiYmV0YS1uby1zbGEiXX0.5FORyZPlEV8QmGsD2NnYyhwu5E6qMyOd1gS4v7sGAw49Ex7ZyYRcxob1X3SiYbjwzF9JUCrpx-TGhc7x741RDQ",
+    "expired": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiI2ZGQ3ODM1NS0wYWE4LTQ0YzEtODQwNi03OWQ4OWQwMThiZWYiLCJzdWIiOiJleHBpcmVkQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjE3MzU2ODk2MDAsImV4cCI6MTc0MzQ2NTYwMH0.0KHcyXUgcakn69OrnlBxpcBTAOihzIFPOKT8lsO3n0bHTOKAmn_1DD_w4hIYAsoR032-8JgWbCVgv59C0vbBBQ",
+    "perpetual": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiI0M2Q4NDg5NS0xM2QwLTQwZjQtODExZS1lNjgxMmNjMmU1MmQiLCJzdWIiOiJwZXJwZXR1YWxAZXhhbXBsZS5jb20iLCJ0aWVyIjoiYmV0YSIsImlhdCI6MTczNTY4OTYwMH0.p6BCiBlRl5L700U4gMLAz6B1Z9pt_KCdU_VOQq5-TTnOHQX8XpGJTDI18i9D5MTMqalJXvefIZJMN3KsWOhCCA",
+    "badSignature": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiJiNjY3NzY5Ny03OTFmLTRiNWUtOTgxMC1hYzU1MjQxMzdhYjMiLCJzdWIiOiJiYWQtc2lnbmF0dXJlQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjQxMDI0NDQ4MDAsImV4cCI6NDExMDIyMDgwMH0.bBfDmT54L2bmiUXaU01CdjBQd9Tn7alfznCvfgWpwRXJ2XO9P4CWSn62EJModxaS_U4EXL5bLSKCp7BMrf_uDA",
+    "unknownKid": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LXVua25vd24iLCJsaWQiOiJlMzg1YjQ5ZS02YTRmLTQzNDUtYTViNy1kZWVlNThhNTRiYjQiLCJzdWIiOiJ1bmtub3duLWtpZEBleGFtcGxlLmNvbSIsInRpZXIiOiJiZXRhIiwiaWF0Ijo0MTAyNDQ0ODAwLCJleHAiOjQxMTAyMjA4MDB9.qcHW3iiYoF_sGSL-90LfAy-hXOb-N_K6QMojfUrneSRmXJdepkJfIN_dO1j-cEk3RtYJO7KO7egzIBWm1LqABA",
+    "revoked": "ALET1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJsaWQiOiJmOTZjYzRkOS05NTZjLTQ4NGQtYjFhNy0yNGY4Y2QzYjU2MzAiLCJzdWIiOiJyZXZva2VkQGV4YW1wbGUuY29tIiwidGllciI6ImJldGEiLCJpYXQiOjQxMDI0NDQ4MDAsImV4cCI6NDExMDIyMDgwMH0.Af-Gv93SqIhtiRn2AfJsN4hJD8RaxTAcfNw7Q8SqckBLFaNMFwa40yOf0xURmeylT8I7NHOdZ8sC-tCsS7NECg"
   },
-  "revokedLid": "78dc1b42-6e0e-42c4-a135-464e2299d82f",
-  "revocations": "ALETR1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJpYXQiOjQxMDI1MzEyMDAsIm5leHQiOjQxMDI1MzQ4MDAsInJldm9rZWQiOlsiNzhkYzFiNDItNmUwZS00MmM0LWExMzUtNDY0ZTIyOTlkODJmIl19.2Wf-N7drZrG1jqaHBoX_LwOnoIGckv3Sadu6WM95P36adtjUvH6iEmW_uh3vCUr5suoo1Okmf_uZzZ5r_DP-Dg"
+  "documents": {
+    "terms": {
+      "version": "2100-01-01",
+      "text": "Fixture terms of service.\n",
+      "sha256": "8e2d0c919cdfe16ecd4bc454bfdbad7de3f4719f53187f46216d77e468daf208"
+    },
+    "privacy": {
+      "version": "2100-01-01",
+      "text": "Fixture privacy policy.\n",
+      "sha256": "9f4d7d9cc309aedf40fde2fe51b63100f80a74055deac3942920892b44b84ff3"
+    }
+  },
+  "withTermsPayload": {
+    "v": 1,
+    "kid": "test-1",
+    "lid": "6eb56226-2c39-4582-bae9-2f6a5178a4f2",
+    "sub": "with-terms@example.com",
+    "tier": "beta",
+    "iat": 4102444800,
+    "exp": 4110220800,
+    "acc": [
+      {
+        "d": "terms",
+        "v": "2100-01-01",
+        "h": "8e2d0c919cdfe16ecd4bc454bfdbad7de3f4719f53187f46216d77e468daf208",
+        "at": 4102441200
+      },
+      {
+        "d": "privacy",
+        "v": "2100-01-01",
+        "h": "9f4d7d9cc309aedf40fde2fe51b63100f80a74055deac3942920892b44b84ff3",
+        "at": 4102441200
+      }
+    ],
+    "cl": [
+      "no-baa",
+      "beta-no-sla"
+    ]
+  },
+  "revokedLid": "f96cc4d9-956c-484d-b1a7-24f8cd3b5630",
+  "revocations": "ALETR1.eyJ2IjoxLCJraWQiOiJ0ZXN0LTEiLCJpYXQiOjQxMDI1MzEyMDAsIm5leHQiOjQxMDI1MzQ4MDAsInJldm9rZWQiOlsiZjk2Y2M0ZDktOTU2Yy00ODRkLWIxYTctMjRmOGNkM2I1NjMwIl19._8zYGhL0PLW9PMgOozIWPou01qmaaRfprzu-oyMpNZ8Ysp8m6pMFModWFvSiZmiKhxempqns5g6wvXDaKtPVCA"
 }

@@ -43,7 +43,9 @@ import { buildUnsignedPdf } from '../agreements/signed/pdf';
 import type { Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
-import { ALETHEIA_BETA, OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY } from './content';
+import { acceptAgreement, type Db as AgreementsDb } from '../agreements/service';
+import { ALETHEIA_RENEWAL, BETA_FRAME, OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY, betaAgreement } from './content';
+import type { LegalDocs } from '../aletheia-docs';
 import { declineEmail, receivedEmail, reviewEmail, signLinkEmail } from './emails';
 import { consentRecords, sha256Hex } from './hash';
 
@@ -53,6 +55,8 @@ export type BetaDeps = Deps & {
   siteUrl: string;
   /** BETA_REVIEW_EMAIL; null skips the review email. */
   reviewEmail: string | null;
+  /** The Aletheia Terms and Privacy Policy as fetched now (lib/aletheia-docs.ts). Throws when they can't be. */
+  legalDocs: () => Promise<LegalDocs>;
   now?: () => Date;
 };
 
@@ -70,14 +74,14 @@ const SKEW_MS = 1 * MIN;
 /** Apply-time consents must have been ticked within this window. */
 const CONSENT_MAX_AGE_MS = 24 * HOUR;
 const UA_MAX = 512;
-const DEF = ALETHEIA_BETA;
+const FRAME = BETA_FRAME; // paths only; text comes from betaAgreement(docs.version)
 
 const nowOf = (deps: { now?: () => Date }) => deps.now?.() ?? new Date();
 const errType = (err: unknown) => (err instanceof Error ? err.name : typeof err);
 
-export const draftPath = (applicationId: string, sha: string) => signed.draftPath(DEF, applicationId, sha);
-export const signedPdfPath = (documentId: string) => signed.signedPdfPath(DEF, documentId);
-export const auditPath = (documentId: string) => signed.auditPath(DEF, documentId);
+export const draftPath = (applicationId: string, sha: string) => signed.draftPath(FRAME, applicationId, sha);
+export const signedPdfPath = (documentId: string) => signed.signedPdfPath(FRAME, documentId);
+export const auditPath = (documentId: string) => signed.auditPath(FRAME, documentId);
 const tryDelete = signed.tryDelete;
 
 /** Case-insensitive, whitespace-normalised name comparison key. */
@@ -91,6 +95,9 @@ function parseIso(s: string): Date | null {
 }
 
 // ---------------------------------------------------------------- apply
+
+/** A declined applicant may apply again this many months after the decline. */
+export const REAPPLY_AFTER_MONTHS = 3;
 
 export type ApplyOutcome = 'sent' | 'exists' | 'rate_limited' | { invalid: string };
 
@@ -135,8 +142,10 @@ const resetDraft = {
 
 /**
  * A new application, or new answers for an address whose latest application
- * is still a draft. An address whose application was already submitted,
- * approved or declined gets nothing new ('exists'); the route answers 202
+ * is still a draft. An address whose application was already submitted or
+ * approved gets nothing new ('exists'), and so does one declined less than
+ * REAPPLY_AFTER_MONTHS ago. After that a declined address may apply again
+ * as a new application. The route answers 202
  * either way, so the response doesn't reveal which addresses have applied.
  * Input must already have passed applicationInputSchema.
  */
@@ -144,6 +153,11 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
   const now = nowOf(deps);
   const problem = checkApplyConsents(input.consents, now);
   if (problem) return { invalid: problem };
+  // C1 names a version of the Terms and Privacy Policy; it must be the one in force now.
+  const docs = await deps.legalDocs();
+  if (input.legalVersion !== docs.version) {
+    return { invalid: 'The Terms of Service and Privacy Policy were updated. Reload the page and review them again.' };
+  }
 
   const email = normalizeEmail(input.answers.email);
   if (await isRateLimited(deps, email)) return 'rate_limited';
@@ -154,32 +168,49 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
     .where(eq(betaApplications.email, email))
     .orderBy(desc(betaApplications.createdAt))
     .limit(1);
-  if (latest && latest.status !== 'draft') return 'exists';
+  if (latest && latest.status !== 'draft' && !(await mayReapply(deps, latest, now))) return 'exists';
+  const draft = latest?.status === 'draft' ? latest : undefined;
 
   const token = newLinkToken();
   const expiresAt = new Date(now.getTime() + SIGN_LINK_TTL_MS);
   const values = {
     answers: { ...input.answers, email },
-    consents: consentRecords(input.consents),
+    consents: consentRecords(input.consents, docs.version),
+    acceptedDocs: [
+      { d: 'terms' as const, v: docs.terms.version, h: docs.terms.sha256 },
+      { d: 'privacy' as const, v: docs.privacy.version, h: docs.privacy.sha256 },
+    ],
     updatesOptIn: Object.hasOwn(input.consents, 'C11'),
     signLinkHash: hashLinkToken(token),
     signLinkExpiresAt: expiresAt,
     ...resetDraft,
   };
-  if (latest) {
+  if (draft) {
     // Guarded: a sign that lands between the read and this write must not be overwritten.
     const [updated] = await deps.db
       .update(betaApplications)
       .set(values)
-      .where(and(eq(betaApplications.id, latest.id), eq(betaApplications.status, 'draft'), isNull(betaApplications.documentId)))
+      .where(and(eq(betaApplications.id, draft.id), eq(betaApplications.status, 'draft'), isNull(betaApplications.documentId)))
       .returning({ id: betaApplications.id });
     if (!updated) return 'exists';
-    await tryDelete(deps.blob, [latest.draftPdfPath]);
+    await tryDelete(deps.blob, [draft.draftPdfPath]);
   } else {
     await deps.db.insert(betaApplications).values({ id: randomUUID(), email, status: 'draft', createdAt: now, ...values });
   }
   await sendSignLink(deps, email, token, expiresAt, false);
   return 'sent';
+}
+
+/** A declined application whose latest decline is at least REAPPLY_AFTER_MONTHS old. */
+async function mayReapply(deps: BetaDeps, app: BetaApplication, now: Date): Promise<boolean> {
+  if (app.status !== 'declined') return false;
+  const [last] = await deps.db
+    .select({ decidedAt: documentReviews.decidedAt })
+    .from(documentReviews)
+    .where(and(eq(documentReviews.applicationId, app.id), eq(documentReviews.decision, 'declined')))
+    .orderBy(desc(documentReviews.decidedAt))
+    .limit(1);
+  return !!last && addMonths(last.decidedAt, REAPPLY_AFTER_MONTHS) <= now;
 }
 
 /**
@@ -258,9 +289,10 @@ export async function openSigningLink(deps: BetaDeps, token: string): Promise<Op
   const app = await appBySignLink(deps, token);
   const state = linkState(app, now);
   if (state !== 'valid') return { ok: false, reason: state };
-  if (signed.consentsAreStale(DEF, app.consents)) return { ok: false, reason: 'expired' };
+  const def = betaAgreement((await deps.legalDocs()).version);
+  if (signed.consentsAreStale(def, app.consents)) return { ok: false, reason: 'expired' };
 
-  const { bytes, signatureBlock } = await buildUnsignedPdf(DEF, {
+  const { bytes, signatureBlock } = await buildUnsignedPdf(def, {
     applicationId: app.id,
     details: describeAnswers(app.answers as Answers),
     consents: app.consents,
@@ -422,6 +454,10 @@ export async function sign(
   const typed = input.name.normalize('NFC').trim().replace(/\s+/g, ' ');
   if (!typed || nameKey(typed) !== nameKey(answers.fullName)) return { ok: false, error: 'name_mismatch' };
 
+  // The terms in force must still be the ones ticked and shown in the document.
+  const def = betaAgreement((await deps.legalDocs()).version);
+  if (signed.consentsAreStale(def, app.consents)) return { ok: false, error: 'invalid' };
+
   const draft = await deps.blob.get(app.draftPdfPath!);
   if (!draft || sha256Hex(draft) !== app.draftPdfSha256) {
     console.error('beta sign: draft missing or changed');
@@ -429,7 +465,7 @@ export async function sign(
   }
 
   const result = await signed.signAndStore(deps, {
-    definition: DEF,
+    definition: def,
     applicationId: app.id,
     draft,
     unsignedSha256: app.draftPdfSha256,
@@ -437,7 +473,7 @@ export async function sign(
     signer: { name: answers.fullName, email: app.email },
     typedName: typed,
     answers,
-    blocks: signed.signedBlocks(DEF, app.consents, esignAt.toISOString()),
+    blocks: signed.signedBlocks(def, app.consents, esignAt.toISOString()),
     emailConfirmedAt: app.emailConfirmedAt,
     signedAt: now,
     events: [
@@ -507,11 +543,44 @@ export type KeyResult =
       /** A 1h session for the signed document, when there is one. */
       session: { token: string; expiresAt: Date } | null;
     }
-  | { ok: false; reason: 'used' | 'expired' | 'invalid' };
+  | { ok: false; reason: 'used' | 'expired' | 'invalid' | 'attestation_required' | 'attestation_invalid' };
 
-/** Reveals the key behind a key link once, and opens a 1h session for the signed copy if there is one. */
-export async function revealKey(deps: BetaDeps, token: string): Promise<KeyResult> {
-  const r = await revealKeyLink(deps, token);
+/** The licensee's renewed C2 confirmation, as the key page sends it. */
+export type RenewalAttestation = {
+  version: string;
+  shownAt: string;
+  tickedAt: Record<string, string>;
+  sentAt?: string;
+};
+
+/**
+ * Reveals the key behind a key link once, and opens a 1h session for the signed copy if there is one.
+ * A renewed license needs `attestation` (C2 again); without it the answer is
+ * 'attestation_required' and the link stays unused.
+ */
+export async function revealKey(
+  deps: BetaDeps,
+  token: string,
+  attestation?: RenewalAttestation,
+  meta?: RequestMeta,
+): Promise<KeyResult> {
+  const attest = attestation
+    ? async (license: { email: string }) => {
+        const r = await acceptAgreement(
+          { db: deps.db as unknown as AgreementsDb, now: deps.now },
+          {
+            definition: ALETHEIA_RENEWAL,
+            ...attestation,
+            // The emailed link proves the address.
+            subject: license.email,
+            subjectVerified: true,
+            meta,
+          },
+        );
+        return r.ok;
+      }
+    : undefined;
+  const r = await revealKeyLink(deps, token, attest);
   if (!r.ok) return r;
   let session: { token: string; expiresAt: Date } | null = null;
   if (r.applicationId) {
@@ -649,7 +718,7 @@ export async function decline(deps: BetaDeps, input: ReviewInput): Promise<Revie
   }
   let emailed = true;
   try {
-    await deps.mailer.send({ to: app.email, ...declineEmail() });
+    await deps.mailer.send({ to: app.email, ...declineEmail({ reapplyAfter: addMonths(now, REAPPLY_AFTER_MONTHS) }) });
     await deps.db.insert(emailSends).values({ email: app.email, kind: 'decline', sentAt: now });
   } catch (err) {
     console.error('beta decline email failed', errType(err));

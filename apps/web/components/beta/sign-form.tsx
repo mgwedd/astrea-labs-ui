@@ -4,11 +4,10 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Input } from '@astrea/ui';
-import { SIGNING_CONSENT_ID, blockById } from '@/lib/beta-access/content';
+import { SIGNING_CONSENT as C12 } from '@/lib/beta-access/content';
 import { ConsentCheckbox } from './consent-checkbox';
 import { Field, controlProps, invalidClass } from './field';
 
-const C12 = blockById(SIGNING_CONSENT_ID);
 // Same comparison as the server's nameKey(): case-insensitive, whitespace-normalised.
 const normalize = (s: string) => s.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 

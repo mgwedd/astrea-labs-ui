@@ -88,22 +88,22 @@ describe("applicationInputSchema", () => {
   const consents = Object.fromEntries(REQUIRED_AT_APPLY.map((id) => [id, now]));
 
   it("accepts all required, with or without C11", () => {
-    expect(applicationInputSchema.safeParse({ answers: valid, consents }).success).toBe(true);
-    expect(applicationInputSchema.safeParse({ answers: valid, consents: { ...consents, C11: now } }).success).toBe(true);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents }).success).toBe(true);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: { ...consents, C11: now } }).success).toBe(true);
   });
 
   it("rejects a missing required consent", () => {
     const { C5: _omit, ...rest } = consents;
-    expect(applicationInputSchema.safeParse({ answers: valid, consents: rest }).success).toBe(false);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: rest }).success).toBe(false);
   });
 
   it("rejects C12 and unknown ids", () => {
-    expect(applicationInputSchema.safeParse({ answers: valid, consents: { ...consents, C12: now } }).success).toBe(false);
-    expect(applicationInputSchema.safeParse({ answers: valid, consents: { ...consents, X1: now } }).success).toBe(false);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: { ...consents, C12: now } }).success).toBe(false);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: { ...consents, X1: now } }).success).toBe(false);
   });
 
   it("rejects non-ISO times", () => {
-    expect(applicationInputSchema.safeParse({ answers: valid, consents: { ...consents, C1: "yesterday" } }).success).toBe(false);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: { ...consents, C1: "yesterday" } }).success).toBe(false);
   });
 });
 

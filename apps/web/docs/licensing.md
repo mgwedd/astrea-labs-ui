@@ -13,10 +13,18 @@ The license key page has an "Open in Aletheia" button that opens `aletheia://lic
 | `/aletheia/beta` | page | none | Email form (one email field, unticked updates box). |
 | `/api/licenses/request` | POST `{email, updatesOptIn}` | BotID | Issues a license, or resends the active one. Always `202 {ok:true}` so addresses can't be probed. Limit: 3/hour, 6/day per email. An address with a revoked, unreplaced, unexpired license gets nothing until an admin reissues. |
 | `/api/licenses/revocations` | GET | none | Signed `ALETR1.` list. `Cache-Control: public, max-age=3600`. Query strings 301 to the bare URL so they can't split the CDN cache. No cookies or logging. |
-| `/api/licenses/admin` | POST | `Bearer LICENSE_ADMIN_TOKEN` | `{action:"list",email}`, `{action:"revoke",lid,reason}` (also revokes its renewals), `{action:"reissue",lid,revokeOld,reason?,expiresAt?}` (`expiresAt`: ISO date-time, or `null` for never; omitted keeps the old license's policy). |
-| `/api/licenses/renewals` | GET (Vercel Cron, daily 15:00 UTC) | `Bearer CRON_SECRET` | Emails a fresh license, of the same length, to anyone with an expiring license within 30 days of its end (`RENEWAL_WINDOW_DAYS` in `lib/licensing/service.ts`). |
+| `/api/licenses/admin` | POST | `Bearer LICENSE_ADMIN_TOKEN` | `{action:"list",email}`, `{action:"revoke",lid,reason,by}` (also revokes its renewals), `{action:"reissue",lid,revokeOld,reason?,expiresAt?,by?}` (`expiresAt`: ISO date-time, or `null` for never; omitted keeps the old license's policy). `by` names who revoked and is stored on the license; it is required for revoke and for reissue with `revokeOld`. |
+| `/api/licenses/renewals` | GET (Vercel Cron, daily 15:00 UTC) | `Bearer CRON_SECRET` | Emails a fresh license, of the same length, to anyone with an expiring license within 30 days of its end (`RENEWAL_WINDOW_DAYS` in `lib/licensing/service.ts`). The key page shows a renewed key only after the licensee confirms C2 again (`/api/beta/key` answers `409` until then); the confirmation is stored as an `aletheia-beta-renewal` acceptance. |
 
-Licenses don't expire unless an admin sets `expiresAt` on a reissue. A token without `exp` is valid until revoked. Revoked non-expiring licenses stay on the revocation list for good (the list is capped at 256 KB, roughly 6,000 entries).
+## Terms and privacy (acceptance records)
+
+The Aletheia repo owns `TERMS.md` and `PRIVACY.md`. The site fetches them from `raw.githubusercontent.com/mgwedd/aletheia/main` (`lib/aletheia-docs.ts`, cached for an hour) and renders them at `/aletheia/terms` and `/aletheia/privacy`. Their `_Last updated: YYYY-MM-DD_` line is the version; both files must carry the same one. Nothing is hard-coded: a failed fetch, a missing version line or differing versions throws, so those pages, `/aletheia/beta/apply` and applying/signing fail rather than show or record anything stale. To publish new terms, update the files in the Aletheia repo; the site picks them up within the hour.
+
+When an applicant applies, the form sends the version its C1 checkbox named. The server rejects the application if that is no longer the current version, and otherwise stores `[{d, v, h}]` for both documents (`beta_applications.accepted_docs`; `h` is the SHA-256 of the exact bytes fetched). `acceptanceFor` (`lib/licensing/acceptance.ts`) builds the token's `acc` from that record and the C1 tick time. Applications from before this was recorded have no record and get no `acc`.
+
+C1's text names the version, so a new terms version changes C1's hash. An applicant who ticked C1 under an older version can no longer open or sign the document and has to apply again.
+
+Licenses expire. A license from an approved beta application runs `BETA_LICENSE_MONTHS` (6) months (`lib/beta-access/service.ts`), and its token carries that `exp`. Any other issue defaults to `DEFAULT_LICENSE_MONTHS` (12, `lib/licensing/service.ts`). An admin reissue can set `expiresAt`, or `null` for a license that never expires; a token without `exp` is valid until revoked. Revoked non-expiring licenses stay on the revocation list for good (the list is capped at 256 KB, roughly 6,000 entries).
 
 Tokens are never stored. They are rebuilt from the `licenses` row, so a resend sends identical bytes.
 

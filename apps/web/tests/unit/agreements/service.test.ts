@@ -10,7 +10,10 @@ import { agreementSha256, sha256Hex } from '@/lib/agreements/evidence';
 import { acceptAgreement, currentAcceptance, RATE_LIMIT_PER_HOUR, type Db } from '@/lib/agreements/service';
 import { agreementAcceptances } from '@/lib/agreements/db/schema';
 import { AcceptSchema } from '@/lib/agreements/validation';
-import { ALETHEIA_BETA, DOCUMENT_BLOCKS } from '@/lib/beta-access/content';
+import { betaAgreement, documentBlocks } from '@/lib/beta-access/content';
+
+const ALETHEIA_BETA = betaAgreement('2026-10-24');
+const DOCUMENT_BLOCKS = documentBlocks('2026-10-24');
 
 const TERMS = defineAgreement({
   id: 'test-terms',
@@ -72,7 +75,7 @@ describe('Aletheia beta as a signed definition', () => {
   it('pins the block order and document hash (a change here needs a DOC_VERSION bump)', () => {
     const n = (p: string, a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => `${p}${a + i}`);
     expect(DOCUMENT_BLOCKS.map((b) => b.id)).toEqual([...n('H', 0, 8), ...n('B', 1, 8), 'B0', ...n('C', 1, 12)]);
-    expect(agreementSha256(ALETHEIA_BETA)).toBe('a455301f220a1fa2435e2aa072594671fa7204511b389c7e46c854a817b04fa2');
+    expect(agreementSha256(ALETHEIA_BETA)).toBe('4c456a4d0138a3f1b47b137923ad5e56d761911e55dc114c85da0e3e9ebc8d00');
   });
 });
 

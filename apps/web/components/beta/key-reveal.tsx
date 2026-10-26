@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { ALETHEIA_RENEWAL } from '@/lib/beta-access/content';
+import { ConsentCheckbox } from './consent-checkbox';
 import { AppWindow, Copy, Download, FileText, KeyRound } from 'lucide-react';
 import {
   Button,
@@ -21,6 +23,7 @@ type Revealed = { token: string; expiresAt: string | null; downloadUrl: string; 
 type State =
   | { kind: 'idle' }
   | { kind: 'loading' }
+  | { kind: 'attest'; shownAt: string; tickedAt: string | null; sending: boolean; error?: string }
   | { kind: 'shown'; key: Revealed }
   | { kind: 'gone'; reason: string }
   | { kind: 'error'; message: string };
@@ -35,23 +38,50 @@ const GONE: Record<string, { title: string; body: string }> = {
 // replacing the current one. Nothing is sent anywhere.
 const openInAppUrl = (key: string) => `aletheia://license?key=${encodeURIComponent(key)}`;
 
+const C2 = ALETHEIA_RENEWAL.checkboxes[0];
+
 const formatDate = (iso: string) =>
   new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(iso));
 
 export function KeyReveal({ token }: { token: string }) {
   const [state, setState] = useState<State>({ kind: 'idle' });
 
-  async function reveal() {
-    setState({ kind: 'loading' });
+  // A renewed key needs C2 confirmed again: the server answers 409 and the
+  // link stays unused until the box is ticked and sent.
+  async function reveal(attestation?: { shownAt: string; tickedAt: string }) {
+    if (attestation) setState({ kind: 'attest', ...attestation, sending: true });
+    else setState({ kind: 'loading' });
     try {
       const res = await fetch('/api/beta/key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ t: token }),
+        body: JSON.stringify({
+          t: token,
+          ...(attestation && {
+            attestation: {
+              version: ALETHEIA_RENEWAL.version,
+              shownAt: attestation.shownAt,
+              tickedAt: { [C2.id]: attestation.tickedAt },
+              sentAt: new Date().toISOString(),
+            },
+          }),
+        }),
       });
       const body = (await res.json().catch(() => ({}))) as Partial<Revealed> & { error?: string };
       if (res.ok && body.token) return setState({ kind: 'shown', key: body as Revealed });
       if (res.status === 410) return setState({ kind: 'gone', reason: body.error ?? 'invalid' });
+      if (res.status === 409) {
+        return setState({ kind: 'attest', shownAt: new Date().toISOString(), tickedAt: null, sending: false });
+      }
+      if (res.status === 400 && attestation) {
+        return setState({
+          kind: 'attest',
+          shownAt: new Date().toISOString(),
+          tickedAt: null,
+          sending: false,
+          error: 'We couldn’t record your confirmation. Reload the page and try again.',
+        });
+      }
       setState({ kind: 'error', message: 'Something went wrong on our side. Please try again in a few minutes.' });
     } catch {
       setState({ kind: 'error', message: 'Couldn’t reach the server. Check your connection and try again.' });
@@ -70,6 +100,36 @@ export function KeyReveal({ token }: { token: string }) {
   if (state.kind === 'gone') {
     const gone = GONE[state.reason] ?? GONE.invalid!;
     return <LostLicenseCard title={gone.title} body={`${gone.body} If you’ve lost your key, we can email you a new link.`} />;
+  }
+
+  if (state.kind === 'attest') {
+    const { shownAt, tickedAt, sending, error } = state;
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">{ALETHEIA_RENEWAL.title}</CardTitle>
+          <CardDescription>
+            Your license has been renewed. Confirm this again to see your new key. If you don’t, your current key ends on
+            its usual date.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ConsentCheckbox
+            block={C2}
+            checked={tickedAt !== null}
+            onCheckedChange={(v) =>
+              setState({ kind: 'attest', shownAt, tickedAt: v ? new Date().toISOString() : null, sending: false })
+            }
+            error={error}
+          />
+        </CardContent>
+        <CardFooter>
+          <Button onClick={() => tickedAt && reveal({ shownAt, tickedAt })} disabled={!tickedAt || sending}>
+            {sending ? 'Confirming…' : 'Confirm and show my key'}
+          </Button>
+        </CardFooter>
+      </Card>
+    );
   }
 
   if (state.kind === 'shown') {
@@ -155,7 +215,7 @@ export function KeyReveal({ token }: { token: string }) {
         </CardContent>
       )}
       <CardFooter>
-        <Button onClick={reveal} disabled={state.kind === 'loading'}>
+        <Button onClick={() => reveal()} disabled={state.kind === 'loading'}>
           {state.kind === 'loading' ? 'Opening…' : 'Show my key'}
         </Button>
       </CardFooter>

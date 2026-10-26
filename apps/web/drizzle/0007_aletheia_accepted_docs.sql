@@ -1,0 +1,1 @@
+ALTER TABLE "beta_applications" ADD COLUMN "accepted_docs" jsonb;

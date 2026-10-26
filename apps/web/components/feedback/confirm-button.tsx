@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@astrea/ui';
+import { TriangleAlert } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle, Button, Spinner } from '@astrea/ui';
 
 type State =
   | { kind: 'idle' }
@@ -37,23 +38,25 @@ export function ConfirmButton({ token }: { token: string }) {
 
   if (state.kind === 'done') {
     return (
-      <div role="status" className="flex flex-col gap-2 rounded-lg border p-6">
-        <p className="font-medium">{state.already ? 'You already confirmed this.' : 'Confirmed. Thank you.'}</p>
-        <p className="text-sm text-muted-foreground">
+      <Alert role="status">
+        <AlertTitle>{state.already ? 'You already confirmed this.' : 'Confirmed. Thank you.'}</AlertTitle>
+        <AlertDescription className="text-muted-foreground">
           We review every report first. If it is accepted we post it as a public issue; we may reply by email.
-        </p>
-      </div>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="flex flex-col gap-4">
       {state.kind === 'error' && (
-        <p role="alert" className="text-sm text-destructive">
-          {state.message}
-        </p>
+        <Alert variant="destructive">
+          <TriangleAlert aria-hidden />
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
       )}
       <Button onClick={confirm} disabled={state.kind === 'working'} className="self-start">
+        {state.kind === 'working' && <Spinner data-icon="inline-start" aria-hidden />}
         {state.kind === 'working' ? 'Confirming…' : 'Confirm my submission'}
       </Button>
     </div>

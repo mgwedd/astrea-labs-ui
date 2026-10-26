@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 const NEXT_STEPS = [
-  'Michael reviews your application and checks your license with the state board or NPPES.',
+  'Astrea Labs reviews your application and checks your license with the state board or NPPES.',
   'If you’re approved, we email you a single-use link to a page with your license key, the download and your signed copy.',
   'If we can’t approve it, we’ll send you a short email saying so.',
 ];
@@ -57,7 +57,7 @@ export default async function SignedPage() {
           <CardDescription>Download it for your records.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-start gap-1.5 text-sm text-muted-foreground">
-          <p>Michael reviews your application next. If you&apos;re approved, we email you a link to your license key.</p>
+          <p>Astrea Labs reviews your application next. If you&apos;re approved, we email you a link to your license key.</p>
           <InfoTip label="what happens next">
             <span className="flex flex-col gap-1">
               {NEXT_STEPS.map((step) => (
