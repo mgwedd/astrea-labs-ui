@@ -2,7 +2,7 @@ import 'server-only';
 import { Resend } from 'resend';
 import { projects } from '@astrea/research-registry';
 import { topicEnvName, type Audience } from './audience';
-import { fillPlaceholders } from './markdown';
+import { fillPlaceholders } from './html';
 import { signUnsubscribeToken } from './token';
 
 // The only module that talks to Resend. Mock it in tests.

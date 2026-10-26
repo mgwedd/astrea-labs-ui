@@ -35,3 +35,21 @@ export const feedbackSubmissions = pgTable(
 );
 
 export type FeedbackSubmission = typeof feedbackSubmissions.$inferSelect;
+
+// An admin's email to the person who reported feedback. A row exists only for a
+// message that was handed to the mailer, so the thread is the history of what was sent.
+export const feedbackReplies = pgTable(
+  'feedback_replies',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    submissionId: uuid('submission_id')
+      .notNull()
+      .references(() => feedbackSubmissions.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    sentBy: text('sent_by').notNull(), // admin email
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('feedback_replies_submission_sent_idx').on(t.submissionId, t.sentAt)],
+);
+
+export type FeedbackReply = typeof feedbackReplies.$inferSelect;

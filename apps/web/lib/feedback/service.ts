@@ -111,14 +111,30 @@ export async function confirmFeedback(deps: DbDeps, token: string): Promise<Conf
 export type PublicSubmission = Omit<FeedbackSubmission, 'tokenHash'>;
 const strip = ({ tokenHash: _t, ...rest }: FeedbackSubmission): PublicSubmission => rest;
 
-export async function listSubmissions(deps: DbDeps, status?: FeedbackStatus): Promise<PublicSubmission[]> {
+export type InboxFilter = { type?: 'bug' | 'feature'; project?: string };
+
+export async function listSubmissions(deps: DbDeps, status?: FeedbackStatus, filter: InboxFilter = {}): Promise<PublicSubmission[]> {
   const rows = await deps.db
     .select()
     .from(feedbackSubmissions)
-    .where(status ? eq(feedbackSubmissions.status, status) : undefined)
+    .where(
+      and(
+        status ? eq(feedbackSubmissions.status, status) : undefined,
+        filter.type ? eq(feedbackSubmissions.type, filter.type) : undefined,
+        filter.project ? eq(feedbackSubmissions.projectSlug, filter.project) : undefined,
+      ),
+    )
     .orderBy(desc(feedbackSubmissions.createdAt))
     .limit(200);
   return rows.map(strip);
+}
+
+/** How many submissions are in each status, for the inbox tabs. */
+export async function statusCounts(deps: DbDeps): Promise<Record<FeedbackStatus, number>> {
+  const rows = await deps.db.select({ status: feedbackSubmissions.status, n: count() }).from(feedbackSubmissions).groupBy(feedbackSubmissions.status);
+  const out: Record<FeedbackStatus, number> = { unconfirmed: 0, pending_review: 0, creating: 0, approved: 0, rejected: 0 };
+  for (const r of rows) out[r.status] = r.n;
+  return out;
 }
 
 export async function getSubmission(deps: DbDeps, id: string): Promise<(PublicSubmission & { draft: IssueDraft }) | undefined> {
