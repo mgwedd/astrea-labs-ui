@@ -21,6 +21,7 @@ export type ClaimCode = (typeof CLAIM_CODES)[number];
 /** Claims every license of a tier carries. */
 export const CLAIMS_BY_TIER: Record<LicensePayload['tier'], readonly ClaimCode[]> = {
   beta: ['no-baa', 'beta-no-sla'],
+  test: ['no-baa', 'beta-no-sla'],
 };
 
 export const ACCEPTED_DOCS = ['terms', 'privacy'] as const;
@@ -47,7 +48,8 @@ export type LicensePayload = {
   kid: string;
   lid: string;
   sub: string;
-  tier: 'beta';
+  /** "test": a short-lived license for the owner to try a build (see test-license.ts). */
+  tier: 'beta' | 'test';
   iat: number;
   /** Unix seconds. Omitted: the license never expires. */
   exp?: number;

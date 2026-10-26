@@ -43,6 +43,21 @@ export const emailSends = pgTable(
   (t) => [index('email_sends_email_sent_at_idx').on(t.email, t.sentAt)],
 );
 
+// Short-lived test licenses the owner keeps on hand to try new builds
+// (lib/licensing/test-license.ts). At most a few are live; a row is deleted once
+// its license expires, so nothing accumulates. The token is rebuilt from the row.
+export const testLicenses = pgTable('test_licenses', {
+  lid: text('lid').primaryKey(), // "test-<uuid>"
+  label: text('label').notNull(),
+  kid: text('kid').notNull(),
+  issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(), // token iat
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(), // token exp
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdBy: text('created_by').notNull(),
+});
+
+export type TestLicense = typeof testLicenses.$inferSelect;
+
 export type License = typeof licenses.$inferSelect;
 
 // ---- Beta access applications and signed documents ----

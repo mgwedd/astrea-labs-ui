@@ -24,11 +24,13 @@ import {
 import { reissueLicenseAction, revokeLicenseAction, sendKeyLinkAction } from '../actions';
 import { Notice } from '@/components/admin/notice';
 import { SubmitButton } from '@/components/admin/submit-button';
+import { TestLicenses } from '@/components/admin/test-licenses';
 import { formatUtc, licenseState } from '@/lib/admin/format';
 import { listApplications } from '@/lib/beta-access/service';
 import { getDb } from '@/lib/licensing/db/client';
 import { licenses, type License } from '@/lib/licensing/db/schema';
 import { normalizeEmail } from '@/lib/licensing/service';
+import { listTestLicenses, MAX_LIVE_TEST_LICENSES } from '@/lib/licensing/test-license';
 
 const STATUSES = ['submitted', 'approved', 'declined', 'draft'] as const;
 type Status = (typeof STATUSES)[number];
@@ -41,9 +43,10 @@ export default async function LicensesPage({ searchParams }: { searchParams: Sea
   const email = z.email().safeParse(typeof params.email === 'string' ? params.email.trim() : '').data;
 
   const db = getDb();
-  const [applications, found] = await Promise.all([
+  const [applications, found, tests] = await Promise.all([
     listApplications({ db }, status),
     email ? db.select().from(licenses).where(eq(licenses.email, normalizeEmail(email))).orderBy(desc(licenses.issuedAt)) : null,
+    listTestLicenses({ db }),
   ]);
 
   return (
@@ -98,6 +101,19 @@ export default async function LicensesPage({ searchParams }: { searchParams: Sea
             </Table>
           )}
           {applications.length === 500 && <p className="text-sm text-muted-foreground">Showing the newest 500.</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Test licenses</CardTitle>
+          <CardDescription>
+            Keys for trying a build yourself, up to {MAX_LIVE_TEST_LICENSES} live at a time. They work in release
+            builds, send no email, and are deleted once they expire.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TestLicenses licenses={tests} />
         </CardContent>
       </Card>
 

@@ -20,6 +20,9 @@ const services = vi.hoisted(() => ({
   rejectSubmission: vi.fn(),
   reissueLicense: vi.fn(),
   revokeLicense: vi.fn(),
+  createTestLicense: vi.fn(),
+  revealTestLicense: vi.fn(),
+  revokeTestLicense: vi.fn(),
 }));
 vi.mock('@/lib/beta-access/service', () => ({
   approve: services.approve,
@@ -34,6 +37,13 @@ vi.mock('@/lib/licensing/service', () => ({
   reissueLicense: services.reissueLicense,
   revokeLicense: services.revokeLicense,
 }));
+vi.mock('@/lib/licensing/test-license', () => ({
+  TEST_LICENSE_DAYS: [1, 3, 7, 30],
+  createTestLicense: services.createTestLicense,
+  revealTestLicense: services.revealTestLicense,
+  revokeTestLicense: services.revokeTestLicense,
+}));
+vi.mock('@/lib/licensing/keys', () => ({ getSigningKey: () => ({}) }));
 vi.mock('@/lib/beta-access/server', () => ({ betaDeps: () => ({}) }));
 vi.mock('@/lib/feedback/server', () => ({ feedbackDbDeps: () => ({}) }));
 vi.mock('@/lib/licensing/server', () => ({ licensingDeps: () => ({}) }));
@@ -64,6 +74,9 @@ const valid: Record<keyof typeof actions, FormData> = {
   sendKeyLinkAction: form({ lid: ID, email: 'a@example.com' }),
   approveFeedbackAction: form({ id: ID, title: 'T', body: 'B', labels: 'bug' }),
   rejectFeedbackAction: form({ id: ID }),
+  createTestLicenseAction: form({ label: 'smoke', days: '7' }),
+  revealTestLicenseAction: form({ lid: `test-${ID}` }),
+  revokeTestLicenseAction: form({ lid: `test-${ID}` }),
 };
 
 describe('admin actions', () => {
@@ -128,5 +141,21 @@ describe('admin actions', () => {
     licenseRows.value = [{ lid: ID, revokedAt: new Date(), replacedBy: null, expiresAt: null }];
     await expect(actions.reissueLicenseAction(valid.reissueLicenseAction)).rejects.toThrow('notice=inactive');
     expect(services.reissueLicense).not.toHaveBeenCalled();
+  });
+
+  it('issues a test license only for an offered length', async () => {
+    requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
+    await expect(actions.createTestLicenseAction(form({ label: 'x', days: '365' }))).rejects.toThrow('notice=invalid');
+    expect(services.createTestLicense).not.toHaveBeenCalled();
+    services.createTestLicense.mockResolvedValue({ ok: false, error: 'limit' });
+    await expect(actions.createTestLicenseAction(valid.createTestLicenseAction)).rejects.toThrow('notice=test_limit');
+    expect(services.createTestLicense).toHaveBeenCalledWith(expect.anything(), { days: 7, label: 'smoke', by: 'admin@example.com' });
+  });
+
+  it('reveals a test key to the page, never in a redirect', async () => {
+    requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
+    services.revealTestLicense.mockResolvedValue('ALET1.x.y');
+    expect(await actions.revealTestLicenseAction(valid.revealTestLicenseAction)).toEqual({ token: 'ALET1.x.y' });
+    expect(await actions.revealTestLicenseAction(form({ lid: ID }))).toBeNull();
   });
 });

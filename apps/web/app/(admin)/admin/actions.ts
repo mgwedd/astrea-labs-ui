@@ -17,7 +17,15 @@ import { approveSubmission, rejectSubmission } from '@/lib/feedback/service';
 import { getDb } from '@/lib/licensing/db/client';
 import { licenses } from '@/lib/licensing/db/schema';
 import { licensingDeps } from '@/lib/licensing/server';
+import { getSigningKey } from '@/lib/licensing/keys';
 import { reissueLicense, revokeLicense } from '@/lib/licensing/service';
+import {
+  createTestLicense,
+  revealTestLicense,
+  revokeTestLicense,
+  TEST_LICENSE_DAYS,
+  type TestLicenseDays,
+} from '@/lib/licensing/test-license';
 
 const back = (path: string, notice: NoticeKey): never => {
   revalidatePath('/admin', 'layout');
@@ -144,6 +152,44 @@ export async function sendKeyLinkAction(form: FormData) {
   const { lid, email } = parsed.data;
   const r = await resendKeyLink(betaDeps(), lid);
   return back(lookupPath(email), r === 'sent' ? 'key_sent' : r);
+}
+
+// ---------------------------------------------------------------- test licenses
+
+const TestLicenseForm = z.object({
+  label: text(60).min(1),
+  days: z.coerce
+    .number()
+    .refine((d): d is TestLicenseDays => (TEST_LICENSE_DAYS as readonly number[]).includes(d)),
+});
+const TestLid = z.object({ lid: z.string().regex(/^test-[0-9a-f-]{36}$/) });
+
+export async function createTestLicenseAction(form: FormData) {
+  const user = await requireAdmin();
+  const parsed = TestLicenseForm.safeParse(fields(form));
+  if (!parsed.success) return back('/admin/licenses', 'invalid');
+  const r = await createTestLicense(
+    { db: getDb(), key: getSigningKey() },
+    { days: parsed.data.days as TestLicenseDays, label: parsed.data.label, by: user.email },
+  );
+  return back('/admin/licenses', r.ok ? 'test_issued' : 'test_limit');
+}
+
+/** Returns the key itself to the page; it is never put in a URL. */
+export async function revealTestLicenseAction(form: FormData): Promise<{ token: string } | null> {
+  await requireAdmin();
+  const parsed = TestLid.safeParse(fields(form));
+  if (!parsed.success) return null;
+  const token = await revealTestLicense({ db: getDb(), key: getSigningKey() }, parsed.data.lid);
+  return token ? { token } : null;
+}
+
+export async function revokeTestLicenseAction(form: FormData) {
+  await requireAdmin();
+  const parsed = TestLid.safeParse(fields(form));
+  if (!parsed.success) return back('/admin/licenses', 'invalid');
+  const ok = await revokeTestLicense({ db: getDb() }, parsed.data.lid);
+  return back('/admin/licenses', ok ? 'test_revoked' : 'revoke_noop');
 }
 
 // ---------------------------------------------------------------- feedback
