@@ -5,7 +5,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from './db/schema';
-import { betaApplications, emailSends, keyLinks, licenses, type License } from './db/schema';
+import { betaApplications, emailSends, keyLinks, licenses, testLicenses, type License } from './db/schema';
 import { keyLinkEmail, type KeyLinkKind, type Mailer } from './email';
 import { acceptanceFor } from './acceptance';
 import {
@@ -426,7 +426,7 @@ export async function runRenewals(deps: Deps, limit = 200): Promise<{ renewed: n
  * The signed revocation list. iat is the current hour, so every request in an
  * hour gets the same bytes (Ed25519 is deterministic). Revoked licenses are
  * listed until they expire (expired ones are rejected anyway); revoked
- * non-expiring licenses stay listed for good.
+ * non-expiring licenses stay listed for good. Revoked test licenses follow.
  */
 export async function buildRevocationList(deps: Pick<Deps, 'db' | 'key' | 'now'>): Promise<string> {
   const now = deps.now?.() ?? new Date();
@@ -436,8 +436,13 @@ export async function buildRevocationList(deps: Pick<Deps, 'db' | 'key' | 'now'>
     .from(licenses)
     .where(and(isNotNull(licenses.revokedAt), unexpired(now)))
     .orderBy(asc(licenses.lid));
+  const tests = await deps.db
+    .select({ lid: testLicenses.lid })
+    .from(testLicenses)
+    .where(and(isNotNull(testLicenses.revokedAt), gt(testLicenses.expiresAt, now)));
+  const revoked = [...rows.map((r) => r.lid), ...tests.map((r) => r.lid).sort()];
   return signRevocations(
-    { v: 1, kid: deps.key.kid, iat, next: iat + HOUR_S, revoked: rows.map((r) => r.lid) },
+    { v: 1, kid: deps.key.kid, iat, next: iat + HOUR_S, revoked },
     deps.key,
   );
 }

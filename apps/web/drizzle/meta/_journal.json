@@ -61,8 +61,15 @@
     {
       "idx": 8,
       "version": "7",
-      "when": 1792982862070,
-      "tag": "0008_email_campaigns",
+      "when": 1792987951447,
+      "tag": "0008_test_licenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792989096715,
+      "tag": "0009_email_campaigns",
       "breakpoints": true
     }
   ]
