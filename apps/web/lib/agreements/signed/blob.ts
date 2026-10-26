@@ -1,4 +1,4 @@
-// Storage for drafts, signed PDFs and audit JSON. Server-only.
+// Storage for drafts and signed PDFs. Server-only.
 //
 // Every store is write-once: put() never overwrites an existing path, because
 // a signed record is append-only evidence.

@@ -28,8 +28,6 @@ export const draftPath = (def: AgreementDefinition, applicationId: string, sha: 
   `${docType(def)}/drafts/${applicationId}/${sha}.pdf`;
 export const signedPdfPath = (def: AgreementDefinition, documentId: string) =>
   `${docType(def)}/signed/${documentId}/document.pdf`;
-export const auditPath = (def: AgreementDefinition, documentId: string) =>
-  `${docType(def)}/signed/${documentId}/audit.json`;
 
 /** Best effort: a failed delete only leaves an orphan blob (cleanup or manual). */
 export async function tryDelete(blob: BlobStore, paths: (string | null | undefined)[]) {
@@ -88,10 +86,11 @@ export type SignInput = {
 export type SignResult = { ok: true; documentId: string } | { ok: false; error: 'lost' | 'store_failed' };
 
 /**
- * Stamps, seals and stores the signed document. Blob paths are keyed by a
- * documentId made for this attempt, and the evidence row is inserted last,
- * with the claim. Any failure leaves nothing stored; the attempt's blobs are
- * then deleted (best effort). 'lost': the claim didn't match (another attempt won).
+ * Stamps, seals and stores the signed document: the PDF in Blob, the evidence
+ * row (with the signing events) in Postgres. The PDF path is keyed by a
+ * documentId made for this attempt, and the row is inserted last, with the
+ * claim. Any failure leaves nothing stored; the attempt's PDF is then deleted
+ * (best effort). 'lost': the claim didn't match (another attempt won).
  */
 export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<SignResult> {
   const def = input.definition;
@@ -99,7 +98,6 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
   const now = input.signedAt;
   const documentId = randomUUID();
   const pdfPath = signedPdfPath(def, documentId);
-  const jsonPath = auditPath(def, documentId);
   const { ip, ua } = input;
   const audit: AuditTrail = {
     docType: type,
@@ -124,18 +122,15 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
     });
     const pdfSha256 = sha256Hex(signed);
     const seal = await deps.sealer.seal(sealMessage(documentId, pdfSha256));
-    const auditJson = JSON.stringify({ ...audit, pdfSha256, seal }, null, 2);
-    const auditSha256 = sha256Hex(auditJson);
 
     await deps.blob.put(pdfPath, signed, 'application/pdf');
-    await deps.blob.put(jsonPath, new TextEncoder().encode(auditJson), 'application/json');
 
     const res = await deps.db.execute(sql`
       WITH claimed AS (${input.claim(documentId)})
       INSERT INTO ${signedDocuments} (
         "id", "doc_type", "doc_version", "application_id", "signer_email", "signer_name", "answers", "blocks",
         "typed_signature", "email_confirmed_at", "signed_at", "signer_ip", "signer_ua", "unsigned_sha256",
-        "pdf_path", "pdf_sha256", "audit_path", "audit_sha256", "seal_alg", "seal_key_id", "seal_fingerprint",
+        "pdf_path", "pdf_sha256", "events", "seal_alg", "seal_key_id", "seal_fingerprint",
         "seal", "created_at"
       )
       SELECT
@@ -143,7 +138,7 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
         ${JSON.stringify(input.answers)}::jsonb, ${JSON.stringify(input.blocks)}::jsonb,
         ${input.typedName}, ${input.emailConfirmedAt.toISOString()}::timestamptz, ${now.toISOString()}::timestamptz,
         ${ip}, ${ua}, ${input.unsignedSha256},
-        ${pdfPath}, ${pdfSha256}, ${jsonPath}, ${auditSha256}, ${seal.alg}, ${seal.keyId}, ${seal.fingerprint},
+        ${pdfPath}, ${pdfSha256}, ${JSON.stringify(input.events)}::jsonb, ${seal.alg}, ${seal.keyId}, ${seal.fingerprint},
         ${seal.signature}, ${now.toISOString()}::timestamptz
       FROM claimed
       RETURNING "id"`);
@@ -160,12 +155,12 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
       .then((r) => (r.length === 1 ? 'yes' : 'no'))
       .catch(() => 'unknown' as const);
     // Unknown: keep the blobs (an orphan is better than a record without its PDF).
-    if (committed === 'no') await tryDelete(deps.blob, [pdfPath, jsonPath]);
+    if (committed === 'no') await tryDelete(deps.blob, [pdfPath]);
     if (committed !== 'yes') return { ok: false, error: 'store_failed' };
     stored = true;
   }
   if (!stored) {
-    await tryDelete(deps.blob, [pdfPath, jsonPath]);
+    await tryDelete(deps.blob, [pdfPath]);
     return { ok: false, error: 'lost' };
   }
   return { ok: true, documentId };

@@ -85,6 +85,13 @@
       "when": 1792994852256,
       "tag": "0011_forum",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793001731829,
+      "tag": "0012_signed_documents_events",
+      "breakpoints": true
     }
   ]
 }
