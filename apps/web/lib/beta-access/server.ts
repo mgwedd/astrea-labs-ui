@@ -2,6 +2,7 @@ import 'server-only';
 import { licensingDeps, siteUrlFor } from '../licensing/server';
 import { defaultBlobStore } from '../agreements/signed/blob';
 import { defaultSealer, type Sealer } from '../agreements/signed/seal';
+import { getLegalDocs } from '../aletheia-docs';
 import type { BetaDeps } from './service';
 
 export const SESSION_COOKIE = 'beta_session';
@@ -20,6 +21,7 @@ export function betaDeps(request?: Request): BetaDeps {
     sealer: { seal: (message) => (sealer ??= defaultSealer()).seal(message) },
     siteUrl: siteUrlFor(request),
     reviewEmail: process.env.BETA_REVIEW_EMAIL?.trim() || null,
+    legalDocs: getLegalDocs,
   };
 }
 

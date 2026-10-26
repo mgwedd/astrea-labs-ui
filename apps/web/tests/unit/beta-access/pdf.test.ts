@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { PDFDocument } from 'pdf-lib';
 import { answersSchema, describeAnswers } from '@/lib/beta-access/answers';
-import { ALETHEIA_BETA, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
+import { betaAgreement, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
 import { consentRecords, sha256Hex } from '@/lib/beta-access/hash';
 import { buildUnsignedPdf, stampAndCertify, type AuditTrail } from '@/lib/agreements/signed/pdf';
 
@@ -25,12 +25,13 @@ const answers = answersSchema.parse({
 const ticked = Object.fromEntries(
   REQUIRED_AT_APPLY.map((id, i) => [id, new Date(Date.UTC(2026, 9, 23, 14, 2, i)).toISOString()]),
 );
+const ALETHEIA_BETA = betaAgreement('2026-10-24');
 const applicationId = '7f1d2c3b-0000-4000-8000-123456789abc';
 const createdAt = new Date('2026-10-23T14:10:00.000Z');
 const signedAt = new Date('2026-10-23T15:30:12.345Z');
 
 const details = describeAnswers(answers);
-const build = () => buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(ticked), createdAt });
+const build = () => buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(ticked, '2026-10-24'), createdAt });
 
 const audit = (unsignedSha256: string): AuditTrail => ({
   docType: 'beta-access',
@@ -58,7 +59,7 @@ describe('buildUnsignedPdf', () => {
 
   it('changes when the input changes', async () => {
     const a = await build();
-    const b = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(ticked), createdAt: signedAt });
+    const b = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(ticked, '2026-10-24'), createdAt: signedAt });
     expect(sha256Hex(a.bytes)).not.toBe(sha256Hex(b.bytes));
   });
 
@@ -106,18 +107,18 @@ describe('stampAndCertify', () => {
   });
 });
 
-// Hashes taken from the PDF code before it moved to lib/agreements/signed. A
-// change here means the Aletheia PDF changed: bump DOC_VERSION, then update.
+// A change here means the Aletheia PDF changed: bump DOC_VERSION, then update.
+// Fixed at terms version 2026-10-24, which C1 names.
 describe('Aletheia PDF output', () => {
   it('is unchanged byte for byte', async () => {
     const withC11 = { ...ticked, C11: new Date(Date.UTC(2026, 9, 23, 14, 2, 11)).toISOString() };
-    const u = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(withC11), createdAt });
-    expect(sha256Hex(u.bytes)).toBe('7d4108134247011939817fb5e1d1ceb16e2df99b54993bfee7d905bce455f70b');
+    const u = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(withC11, '2026-10-24'), createdAt });
+    expect(sha256Hex(u.bytes)).toBe('a5f61060af0c3fb5e3b02f067844509428569f7e0de31b7cca18c3bee5999613');
     expect(u.signatureBlock).toEqual({
       page: 4,
-      name: { x: 62, y: 400.32 },
-      date: { x: 62, y: 349.59 },
-      consent: { x: 84, y: 481.09, size: 9 },
+      name: { x: 62, y: 384.66 },
+      date: { x: 62, y: 333.93 },
+      consent: { x: 84, y: 465.43, size: 9 },
     });
     const at = (d: Date) => d.toISOString();
     const signed = await stampAndCertify(ALETHEIA_BETA, u.bytes, {
@@ -137,6 +138,6 @@ describe('Aletheia PDF output', () => {
         signerUa: 'UA',
       },
     });
-    expect(sha256Hex(signed)).toBe('fa99e4e80eb22dba3bb0c1d00edb8bd67024f2316a8b2c8105b127b298d2e1e7');
+    expect(sha256Hex(signed)).toBe('3a0562bc90fb9b2b196e04f545883e9b9c8c9f7e93acfa4986e4db07bdf0175a');
   });
 });

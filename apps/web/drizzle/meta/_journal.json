@@ -50,6 +50,13 @@
       "when": 1792866060349,
       "tag": "0006_license_revoker_attestation",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792962247359,
+      "tag": "0007_aletheia_accepted_docs",
+      "breakpoints": true
     }
   ]
 }
