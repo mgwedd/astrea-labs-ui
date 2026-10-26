@@ -5,7 +5,7 @@ describe('safeAdminReturnTo', () => {
   it('keeps /admin paths', () => {
     expect(safeAdminReturnTo('/admin')).toBe('/admin');
     expect(safeAdminReturnTo('/admin/licenses')).toBe('/admin/licenses');
-    expect(safeAdminReturnTo('/admin/users/')).toBe('/admin/users/');
+    expect(safeAdminReturnTo('/admin/emails/')).toBe('/admin/emails/');
   });
   it('rejects open-redirect and non-admin targets', () => {
     for (const bad of [

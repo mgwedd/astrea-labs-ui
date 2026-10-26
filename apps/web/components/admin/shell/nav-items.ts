@@ -1,4 +1,4 @@
-import { BookOpen, Inbox, KeyRound, LayoutDashboard, Mail, MessageSquare, Users, type LucideIcon } from 'lucide-react';
+import { Inbox, KeyRound, LayoutDashboard, Mail, MessageSquare, type LucideIcon } from 'lucide-react';
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: 'applications' | 'feedback' };
 
@@ -8,11 +8,6 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: '/admin/licenses', label: 'Licenses', icon: KeyRound },
   { href: '/admin/feedback', label: 'Feedback', icon: MessageSquare, badge: 'feedback' },
   { href: '/admin/emails', label: 'Emails', icon: Mail },
-];
-
-export const SECONDARY_NAV: NavItem[] = [
-  { href: '/admin/users', label: 'Users', icon: Users },
-  { href: '/admin/writing', label: 'Writing', icon: BookOpen },
 ];
 
 /** Overview matches only itself; every other item also matches its sub-routes. */
@@ -26,8 +21,6 @@ const TITLES: Record<string, string> = {
   licenses: 'Licenses',
   feedback: 'Feedback',
   emails: 'Emails',
-  users: 'Users',
-  writing: 'Writing',
   documents: 'Documents',
 };
 

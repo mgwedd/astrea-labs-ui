@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MessagesSquare } from 'lucide-react';
 import {
   Badge,
   SidebarGroup,
@@ -11,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@astrea/ui';
-import { isActive, PRIMARY_NAV, SECONDARY_NAV, type NavItem } from './nav-items';
+import { isActive, PRIMARY_NAV, type NavItem } from './nav-items';
 
 export type NavCounts = { applications: number; feedback: number };
 
@@ -47,24 +46,5 @@ function Group({ items, counts, pathname }: { items: NavItem[]; counts: NavCount
 
 export function SidebarNav({ counts }: { counts: NavCounts }) {
   const pathname = usePathname();
-  return (
-    <>
-      <Group items={PRIMARY_NAV} counts={counts} pathname={pathname} />
-      <Group items={SECONDARY_NAV} counts={counts} pathname={pathname} />
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="Forum">
-                <Link href="/forum">
-                  <MessagesSquare />
-                  <span>Forum</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    </>
-  );
+  return <Group items={PRIMARY_NAV} counts={counts} pathname={pathname} />;
 }

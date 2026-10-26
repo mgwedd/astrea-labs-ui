@@ -5,7 +5,7 @@ describe('safeReturnTo', () => {
   it('keeps paths inside the area', () => {
     expect(safeReturnTo('/account', 'account')).toBe('/account');
     expect(safeReturnTo('/account/licenses', 'account')).toBe('/account/licenses');
-    expect(safeReturnTo('/admin/users', 'admin')).toBe('/admin/users');
+    expect(safeReturnTo('/admin/emails', 'admin')).toBe('/admin/emails');
   });
   it('falls back to the area root for anything else', () => {
     for (const bad of ['/admin', 'https://evil.com', '//evil.com', '/account/../admin', '/accounts', '/account?x=1', '', null, undefined]) {
@@ -20,7 +20,7 @@ describe('safeReturnTo', () => {
 
 describe('gatedArea', () => {
   it('gates /admin and /account but leaves the invite landing public', () => {
-    expect(gatedArea('/admin/users')).toBe('admin');
+    expect(gatedArea('/admin/emails')).toBe('admin');
     expect(gatedArea('/account')).toBe('account');
     expect(gatedArea('/account/anything')).toBe('account');
     expect(gatedArea('/account/join')).toBeNull();
