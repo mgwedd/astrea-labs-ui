@@ -36,6 +36,9 @@ export const NOTICES = {
   in_progress: { text: 'Another approval is in progress.', error: true },
   not_reviewable: { text: 'This submission is not awaiting review.', error: true },
   rejected: { text: 'Submission rejected.' },
+  test_issued: { text: 'Test license issued. Reveal it below.' },
+  test_limit: { text: 'Three test licenses are already live. Revoke one or wait for one to expire.', error: true },
+  test_revoked: { text: 'Test license revoked. Apps drop it at their next revocation check.' },
   invalid: { text: 'Some fields are missing or invalid.', error: true },
 } as const satisfies Record<string, { text: string; error?: boolean }>;
 

@@ -57,6 +57,13 @@
       "when": 1792962247359,
       "tag": "0007_aletheia_accepted_docs",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792987951447,
+      "tag": "0008_test_licenses",
+      "breakpoints": true
     }
   ]
 }
