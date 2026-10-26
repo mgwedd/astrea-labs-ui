@@ -14,7 +14,7 @@ astrea-labs/
 │   └── web/                         # Next.js 15 App Router with Subdomain Middleware
 │       ├── app/
 │       │   ├── page.tsx             # Apex Lab Portal (astrealabs.com)
-│       │   └── subdomains/[subdomain]/page.tsx  # Project Subdomains (sda.*, minima.*, studio.*)
+│       │   └── subdomains/[subdomain]/page.tsx  # Project Subdomains (sda.*, studio.*)
 │       ├── components/              # Lab navigation, footer, project cards
 │       ├── middleware.ts            # Subdomain extraction & internal rewrites
 │       └── tests/                   # Vitest unit tests & Playwright e2e suites
@@ -25,7 +25,7 @@ astrea-labs/
 │   │   ├── components.json          # shadcn configuration with cssVariables: true
 │   │   └── registry.json            # Community registry specification
 │   ├── research-registry/           # Single source of truth for all research initiatives
-│   │   └── src/                     # Strongly typed projects (SDA, Minima, Studio), pillars, preprints
+│   │   └── src/                     # Strongly typed projects (Aletheia, Groundwork, SDA, ElenchOS), pillars, preprints
 │   ├── config-typescript/           # Shared tsconfig definitions (base, nextjs, react-library)
 │   └── config-eslint/               # Shared ESLint configuration
 ├── .cursor/
@@ -50,15 +50,13 @@ Astrea Labs hosts dedicated subdomains for each research program:
 | :--- | :--- | :--- | :--- |
 | **`astrealabs.com`** | **Astrea Labs LLC** | Frontier intelligence lab introduction & research showcase | Active |
 | **`sda.astrealabs.com`** | **SDA** | Synthetic Data & Autonomous Agency (Formal Sandbox Verification) | Active Research |
-| **`minima.astrealabs.com`** | **MINIMA** | Sub-quadratic attention & structural model distillation | Preprint Available |
 | **`studio.astrealabs.com`** | **STUDIO** | Mechanistic interpretability, activation probing & telemetry workbench | Research Workbench |
 
 ### Subdomain Middleware (`apps/web/middleware.ts`)
 The edge middleware inspects incoming host headers:
 1. `sda.astrealabs.com/*` → Rewrites transparently to `/subdomains/sda/*`
-2. `minima.astrealabs.com/*` → Rewrites transparently to `/subdomains/minima/*`
-3. `studio.astrealabs.com/*` → Rewrites transparently to `/subdomains/studio/*`
-4. **Local Development Preview**: Supports `?subdomain=sda` query override and `/subdomains/<slug>` direct routes without needing to edit `/etc/hosts`.
+2. `studio.astrealabs.com/*` → Rewrites transparently to `/subdomains/studio/*`
+3. **Local Development Preview**: Supports `?subdomain=sda` query override and `/subdomains/<slug>` direct routes without needing to edit `/etc/hosts`.
 
 ---
 
