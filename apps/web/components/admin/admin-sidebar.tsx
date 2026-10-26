@@ -1,48 +1,24 @@
-import Link from 'next/link';
-import { BookOpen, KeyRound, LogOut, Mail, MessageSquare, Users } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@astrea/ui';
+import { SidebarNav, type NavCounts } from './shell/sidebar-nav';
 
-const sections = [
-  { href: '/admin/licenses', label: 'Licenses', icon: KeyRound },
-  { href: '/admin/users', label: 'Users (per app)', icon: Users },
-  { href: '/admin/writing', label: 'Writing', icon: BookOpen },
-  { href: '/admin/emails', label: 'Emails', icon: Mail },
-  { href: '/admin/feedback', label: 'Feedback', icon: MessageSquare },
-];
-
-export function AdminSidebar({ email }: { email: string }) {
+export function AdminSidebar({ email, counts }: { email: string; counts: NavCounts }) {
   return (
     <Sidebar>
-      <SidebarHeader className="px-4 py-3 text-sm font-semibold">Admin</SidebarHeader>
+      <SidebarHeader className="px-4 py-3">
+        <p className="text-sm font-semibold">Astrea Labs</p>
+        <p className="text-xs text-muted-foreground">Admin</p>
+      </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Manage</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {sections.map(({ href, label, icon: Icon }) => (
-                <SidebarMenuItem key={href}>
-                  <SidebarMenuButton asChild>
-                    <Link href={href}>
-                      <Icon />
-                      <span>{label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <SidebarNav counts={counts} />
       </SidebarContent>
       <SidebarFooter>
         <p className="truncate px-2 text-xs text-muted-foreground">{email}</p>
