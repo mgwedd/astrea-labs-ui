@@ -1,6 +1,6 @@
 import { desc } from 'drizzle-orm';
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@astrea/ui';
-import { CampaignComposer } from '@/components/admin/campaign-composer';
+import { CampaignComposer } from '@/components/admin/emails/campaign-composer';
 import { Notice } from '@/components/admin/notice';
 import { formatUtc } from '@/lib/admin/format';
 import { audienceLabel, audienceOptions } from '@/lib/email/audience';
@@ -20,7 +20,7 @@ export default async function EmailsPage({ searchParams }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>New campaign</CardTitle>
-          <CardDescription>Sent as a Resend Broadcast to contacts who opted in on their account.</CardDescription>
+          <CardDescription>Paste or upload HTML. Sent as a Resend Broadcast to contacts who opted in on their account.</CardDescription>
         </CardHeader>
         <CardContent>
           <CampaignComposer audiences={audienceOptions()} />

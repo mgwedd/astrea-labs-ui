@@ -6,7 +6,7 @@ import * as schema from '@/lib/forum/db/schema';
 import * as licensing from '@/lib/licensing/db/schema';
 import type { Db, Deps, Viewer } from '@/lib/forum/service';
 
-const MIGRATION = readFileSync(join(__dirname, '../../../drizzle/0010_forum.sql'), 'utf8');
+const MIGRATION = readFileSync(join(__dirname, '../../../drizzle/0011_forum.sql'), 'utf8');
 
 /** A fresh in-memory Postgres with the real forum migration and the columns of `licenses` the gate reads. */
 export async function newDb(): Promise<Db> {

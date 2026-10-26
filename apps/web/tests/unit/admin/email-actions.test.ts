@@ -21,7 +21,7 @@ function form(fields: Record<string, string>) {
   for (const [k, v] of Object.entries(fields)) f.set(k, v);
   return f;
 }
-const valid = form({ subject: 'Hello', body: 'Body', audience: 'news' });
+const valid = form({ subject: 'Hello', html: '<p>Body</p>', audience: 'news' });
 
 describe('email admin actions', () => {
   beforeEach(() => {
@@ -53,7 +53,7 @@ describe('email admin actions', () => {
   it('sends a campaign to the chosen audience only and logs it', async () => {
     requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
     mail.sendBroadcast.mockResolvedValue({ ok: true, data: { id: 'b1' } });
-    await expect(actions.sendCampaign(form({ subject: 'S', body: 'B', audience: 'product:aletheia' }))).rejects.toThrow('notice=campaign_sent');
+    await expect(actions.sendCampaign(form({ subject: 'S', html: '<p>B</p>', audience: 'product:aletheia' }))).rejects.toThrow('notice=campaign_sent');
     expect(mail.sendBroadcast).toHaveBeenCalledWith(expect.objectContaining({ audience: 'product:aletheia', subject: 'S' }));
     expect(mail.insert).toHaveBeenCalledWith(expect.objectContaining({ sentBy: 'admin@example.com', status: 'sent', broadcastId: 'b1' }));
   });
@@ -66,9 +66,31 @@ describe('email admin actions', () => {
     expect(mail.insert).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed', broadcastId: null }));
   });
 
+  it('previews sanitized HTML with the unsubscribe footer appended, and stores the sanitized body', async () => {
+    requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
+    const dirty = '<p onclick="x()">Hi</p><script>alert(1)</script>';
+    const state = await actions.previewCampaign(null, form({ html: dirty }));
+    expect(state).toEqual({ html: expect.stringContaining('<p>Hi</p>') });
+    expect(JSON.stringify(state)).toContain('unsubscribe?t=preview');
+    expect(JSON.stringify(state)).not.toMatch(/script|onclick/);
+
+    mail.sendBroadcast.mockResolvedValue({ ok: true, data: { id: 'b1' } });
+    await expect(actions.sendCampaign(form({ subject: 'S', html: dirty, audience: 'news' }))).rejects.toThrow('notice=campaign_sent');
+    const sent = mail.sendBroadcast.mock.calls[0][0].html as string;
+    expect(sent).toContain('{{{contact.unsubscribe_token}}}');
+    expect(sent).not.toMatch(/script|onclick/);
+    expect(mail.insert).toHaveBeenCalledWith(expect.objectContaining({ bodyHtml: '<p>Hi</p>' }));
+  });
+
+  it('rejects HTML that is empty once sanitized', async () => {
+    requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
+    await expect(actions.sendCampaign(form({ subject: 'S', html: '<script>alert(1)</script>', audience: 'news' }))).rejects.toThrow('notice=invalid');
+    expect(mail.sendBroadcast).not.toHaveBeenCalled();
+  });
+
   it('rejects bad input without sending', async () => {
     requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
-    for (const bad of [{ subject: '', body: 'B', audience: 'news' }, { subject: 'S', body: 'B', audience: 'product:nope' }, { subject: 'x'.repeat(201), body: 'B', audience: 'news' }]) {
+    for (const bad of [{ subject: '', html: '<p>B</p>', audience: 'news' }, { subject: 'S', html: '<p>B</p>', audience: 'product:nope' }, { subject: 'x'.repeat(201), html: '<p>B</p>', audience: 'news' }]) {
       await expect(actions.sendCampaign(form(bad))).rejects.toThrow('notice=invalid');
     }
     expect(mail.sendBroadcast).not.toHaveBeenCalled();

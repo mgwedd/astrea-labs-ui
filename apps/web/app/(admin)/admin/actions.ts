@@ -62,13 +62,13 @@ const DeclineForm = z.object({
   notes: text(2000).optional(),
 });
 
-const appPath = (id: string) => `/admin/licenses/applications/${id}`;
+const appPath = (id: string) => `/admin/applications/${id}`;
 
 export async function approveApplication(form: FormData) {
   const user = await requireAdmin();
   const parsed = ApproveForm.safeParse(fields(form));
   const id = String(form.get('applicationId') ?? '');
-  if (!parsed.success) return back(z.uuid().safeParse(id).success ? appPath(id) : '/admin/licenses', 'invalid');
+  if (!parsed.success) return back(z.uuid().safeParse(id).success ? appPath(id) : '/admin/applications', 'invalid');
   const { applicationId, source, result, checkedOn, notes } = parsed.data;
 
   const r = await approve(betaDeps(), {
@@ -85,7 +85,7 @@ export async function declineApplication(form: FormData) {
   const user = await requireAdmin();
   const parsed = DeclineForm.safeParse(fields(form));
   const id = String(form.get('applicationId') ?? '');
-  if (!parsed.success) return back(z.uuid().safeParse(id).success ? appPath(id) : '/admin/licenses', 'invalid');
+  if (!parsed.success) return back(z.uuid().safeParse(id).success ? appPath(id) : '/admin/applications', 'invalid');
   const { applicationId, source, result, checkedOn, notes } = parsed.data;
 
   // A license check is optional on decline, but if one is given it must be complete.
@@ -104,7 +104,7 @@ export async function declineApplication(form: FormData) {
 
 // ---------------------------------------------------------------- licenses
 
-const lookupPath = (email: string) => `/admin/licenses?email=${encodeURIComponent(email)}`;
+const lookupPath = (email: string) => `/admin/licenses?q=${encodeURIComponent(email)}`;
 
 const LicenseForm = z.object({ lid: z.uuid(), email: z.email() });
 

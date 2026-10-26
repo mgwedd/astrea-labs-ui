@@ -98,6 +98,5 @@ CREATE UNIQUE INDEX "forum_profiles_username_idx" ON "forum_profiles" USING btre
 CREATE UNIQUE INDEX "forum_profiles_handle_idx" ON "forum_profiles" USING btree ("handle");--> statement-breakpoint
 CREATE INDEX "forum_reactions_thread_idx" ON "forum_reactions" USING btree ("thread_id");--> statement-breakpoint
 CREATE INDEX "forum_threads_category_activity_idx" ON "forum_threads" USING btree ("category_id","last_activity_at");--> statement-breakpoint
-CREATE INDEX "forum_threads_author_idx" ON "forum_threads" USING btree ("author_sub");
---> statement-breakpoint
+CREATE INDEX "forum_threads_author_idx" ON "forum_threads" USING btree ("author_sub");--> statement-breakpoint
 INSERT INTO "forum_categories" ("slug", "name", "group", "sort") VALUES ('aletheia', 'Aletheia', 'aletheia', 0) ON CONFLICT ("slug") DO NOTHING;

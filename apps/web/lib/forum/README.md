@@ -4,7 +4,7 @@ Members-only forum. This directory is the data layer, access gate and service AP
 
 | File | What |
 | --- | --- |
-| `db/schema.ts` | Drizzle tables (migration `drizzle/0010_forum.sql`) |
+| `db/schema.ts` | Drizzle tables (migration `drizzle/0011_forum.sql`) |
 | `service.ts` | All reads and writes. Takes `deps` first, `viewer` second |
 | `gate.ts` | `requireForumMember()` and `canUseForum(user)` |
 | `server.ts` | `forumDeps()`: production deps (Neon) |
