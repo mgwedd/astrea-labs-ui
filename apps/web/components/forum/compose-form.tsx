@@ -27,8 +27,9 @@ import type { CategoryRow, SimilarThread } from '@/lib/forum/service';
 import { EMPTY_VALUE, ForumEditor, type EditorValue } from './editor';
 
 type Category = Pick<CategoryRow, 'slug' | 'name' | 'group'>;
-const GROUPS: { group: Category['group']; label: string }[] = [
-  { group: 'aletheia', label: 'Aletheia' },
+// Aletheia is a single category, so a group heading would just repeat its name.
+const GROUPS: { group: Category['group']; label?: string }[] = [
+  { group: 'aletheia' },
   { group: 'projects', label: 'Projects' },
   { group: 'lab', label: 'Lab' },
 ];
@@ -108,7 +109,7 @@ export function ComposeForm({ categories, initialCategory }: { categories: Categ
                 if (items.length === 0) return null;
                 return (
                   <SelectGroup key={group}>
-                    <SelectLabel>{label}</SelectLabel>
+                    {label && <SelectLabel>{label}</SelectLabel>}
                     {items.map((c) => (
                       <SelectItem key={c.slug} value={c.slug}>
                         {c.name}
