@@ -39,7 +39,7 @@ import {
 } from '../licensing/service';
 import { licenses } from '../licensing/db/schema';
 import type { BlobStore } from '../agreements/signed/blob';
-import { buildUnsignedPdf } from '../agreements/signed/pdf';
+import { buildUnsignedPdf, type AuditEvent, type AuditTrail } from '../agreements/signed/pdf';
 import type { Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
@@ -770,8 +770,75 @@ export async function getApplication(deps: Pick<BetaDeps, 'db'>, id: string) {
     answers: describeAnswers(app.answers as Answers),
     consents: app.consents,
     document: documents.find((d) => d.id === app.documentId) ?? documents[0] ?? null,
+    documents,
     reviews,
   };
+}
+
+// ---------------------------------------------------------------- admin: signed documents
+
+export type SignedFileKind = 'pdf' | 'audit';
+export type FileCheck = 'ok' | 'missing' | 'integrity' | 'unavailable';
+export type SignedFile =
+  | { ok: true; bytes: Uint8Array; filename: string; contentType: string }
+  | { ok: false; reason: 'not_found' | 'missing' | 'integrity' };
+
+async function loadChecked(blob: BlobStore, path: string, sha256: string) {
+  const bytes = await blob.get(path);
+  if (!bytes) return { check: 'missing' as const, bytes: null };
+  if (sha256Hex(bytes) !== sha256) return { check: 'integrity' as const, bytes: null };
+  return { check: 'ok' as const, bytes };
+}
+
+/**
+ * Admin: the signed PDF or the audit JSON of one signed document, served only
+ * when it still matches the SHA-256 recorded when it was signed.
+ */
+export async function readSignedFile(
+  deps: Pick<BetaDeps, 'db' | 'blob'>,
+  documentId: string,
+  kind: SignedFileKind,
+): Promise<SignedFile> {
+  const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId)).limit(1);
+  if (!doc) return { ok: false, reason: 'not_found' };
+  const path = kind === 'pdf' ? doc.pdfPath : doc.auditPath;
+  const sha256 = kind === 'pdf' ? doc.pdfSha256 : doc.auditSha256;
+  const r = await loadChecked(deps.blob, path, sha256);
+  if (!r.bytes) return { ok: false, reason: r.check as 'missing' | 'integrity' };
+  const base = `aletheia-beta-application-${dateStamp(doc.signedAt)}-${doc.id.slice(0, 8)}`;
+  return kind === 'pdf'
+    ? { ok: true, bytes: r.bytes, filename: `${base}.pdf`, contentType: 'application/pdf' }
+    : { ok: true, bytes: r.bytes, filename: `${base}-audit.json`, contentType: 'application/json' };
+}
+
+export type DocumentReviewInfo = {
+  pdf: FileCheck;
+  audit: FileCheck;
+  /** From the audit JSON; empty when it can't be read or doesn't match its hash. */
+  events: AuditEvent[];
+  signerUa: string | null;
+};
+
+/**
+ * Admin: checks both stored files of a signed document against their recorded hashes and reads the audit events.
+ * A storage error marks a file 'unavailable' instead of throwing, so the review page still renders.
+ */
+export async function checkSignedDocument(deps: Pick<BetaDeps, 'blob'>, doc: SignedDocument): Promise<DocumentReviewInfo> {
+  const safe = (path: string, sha256: string) =>
+    loadChecked(deps.blob, path, sha256).catch(() => ({ check: 'unavailable' as const, bytes: null }));
+  const [pdf, audit] = await Promise.all([safe(doc.pdfPath, doc.pdfSha256), safe(doc.auditPath, doc.auditSha256)]);
+  let events: AuditEvent[] = [];
+  if (audit.bytes) {
+    try {
+      const parsed = JSON.parse(new TextDecoder().decode(audit.bytes)) as Partial<AuditTrail>;
+      if (Array.isArray(parsed.events)) {
+        events = parsed.events.filter((e) => typeof e?.type === 'string' && !Number.isNaN(Date.parse(e?.at)));
+      }
+    } catch {
+      // A hash-matched file that isn't JSON leaves the events empty.
+    }
+  }
+  return { pdf: pdf.check, audit: audit.check, events, signerUa: doc.signerUa };
 }
 
 /** Admin: email a fresh key link for an active license. */
