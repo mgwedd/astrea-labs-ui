@@ -28,6 +28,7 @@ export const emailCampaigns = pgTable(
     sentBy: text('sent_by').notNull(), // admin email
     sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
     broadcastId: text('broadcast_id'),
+    bodyHtml: text('body_html'), // the sanitized HTML as sent, without the unsubscribe footer; null on rows from before HTML campaigns
     status: text('status', { enum: ['sent', 'failed'] }).notNull(),
   },
   (t) => [index('email_campaigns_sent_at_idx').on(t.sentAt)],

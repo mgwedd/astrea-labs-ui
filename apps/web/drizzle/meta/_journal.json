@@ -71,6 +71,13 @@
       "when": 1792989096715,
       "tag": "0009_email_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792993740937,
+      "tag": "0010_feedback_replies_campaign_html",
+      "breakpoints": true
     }
   ]
 }
