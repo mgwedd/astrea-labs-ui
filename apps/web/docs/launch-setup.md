@@ -104,6 +104,15 @@ Tenant setup, with the Auth0 CLI (`auth0 login` first). Files are in `apps/web/d
 
 Resend as Auth0's email provider (the passwordless code is sent through it). The API key is a secret: enter it yourself, never paste it into chat. Dashboard > Branding > Email Provider > SMTP: host `smtp.resend.com`, port `465`, username `resend`, password your Resend API key, From the verified sender. Or in your own terminal, so the key is not in shell history: `read -s KEY && auth0 email provider create --provider smtp --smtp-host smtp.resend.com --smtp-port 465 --smtp-user resend --smtp-pass "$KEY" --default-from-address "Astrea Labs <login@astrealabs.com>" --enabled`. Blocker: the sender domain is not verified yet (mgwedd/astrea-labs-ui#6); until it is, codes will not send.
 
+## 7. Campaign email webhook (`RESEND_WEBHOOK_SECRET`)
+
+Campaigns are sent from Postgres through Resend's batch API; Resend keeps no contacts, segments or topics. Bounces and complaints come back by webhook and stop future sends to that address.
+
+1. Apply migration `0012_email_campaign_sends` to production. It drops `email_campaigns.broadcast_id`.
+2. Resend > Webhooks > Add endpoint: `https://astrealabs.com/api/email/resend-webhook`, events `email.delivered`, `email.bounced`, `email.complained`, `email.failed` and `email.suppressed`.
+3. Copy the endpoint's signing secret into Vercel as `RESEND_WEBHOOK_SECRET` (Production). Enter it yourself; never paste it into chat. Until it is set, the route answers 500 and Resend retries.
+4. Optional cleanup: delete the old Resend contacts, segment and topics, and the `RESEND_SEGMENT_ID` and `RESEND_TOPIC_*` env vars.
+
 ## Already tracked elsewhere
 
 - Email (Resend domain, `RESEND_API_KEY`, `LICENSE_EMAIL_FROM`): mgwedd/astrea-labs-ui#6.

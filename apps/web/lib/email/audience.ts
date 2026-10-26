@@ -13,8 +13,3 @@ export function parseAudience(v: unknown): Audience | null {
 }
 
 export const audienceLabel = (a: string) => audienceOptions().find((o) => o.value === a)?.label ?? a;
-
-const slugEnv = (slug: string) => slug.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-
-/** Env var holding the Resend topic id: RESEND_TOPIC_NEWS or RESEND_TOPIC_PRODUCT_<SLUG>. */
-export const topicEnvName = (a: Audience) => (a === 'news' ? 'RESEND_TOPIC_NEWS' : `RESEND_TOPIC_PRODUCT_${slugEnv(a.slice('product:'.length))}`);

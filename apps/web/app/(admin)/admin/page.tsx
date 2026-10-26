@@ -122,7 +122,7 @@ export default async function AdminHome() {
                   {o.lastCampaign.audience} · {formatUtc(o.lastCampaign.sentAt)}
                 </span>
                 <div>
-                  <Badge variant={o.lastCampaign.status === 'failed' ? 'destructive' : 'secondary'}>{o.lastCampaign.status}</Badge>
+                  <Badge variant={o.lastCampaign.status === 'failed' || o.lastCampaign.status === 'partial' ? 'destructive' : 'secondary'}>{o.lastCampaign.status}</Badge>
                 </div>
               </div>
             ) : (
