@@ -26,6 +26,8 @@ C1's text names the version, so a new terms version changes C1's hash. An applic
 
 Licenses expire. A license from an approved beta application runs `BETA_LICENSE_MONTHS` (6) months (`lib/beta-access/service.ts`), and its token carries that `exp`. Any other issue defaults to `DEFAULT_LICENSE_MONTHS` (12, `lib/licensing/service.ts`). An admin reissue can set `expiresAt`, or `null` for a license that never expires; a token without `exp` is valid until revoked. Revoked non-expiring licenses stay on the revocation list for good (the list is capped at 256 KB, roughly 6,000 entries).
 
+**Test licenses.** The admin Licenses page can issue a test license lasting 1, 3, 7 or 30 days (`lib/licensing/test-license.ts`), for trying a build before telling users. It is signed with the production key, so release builds accept it, with tier `test` and a `test-<uuid>` license id. Nothing is stored: no license row, key link or email, only a log line with the id, the admin and the end date. It can't be revoked, so it is kept short and simply runs out.
+
 Tokens are never stored. They are rebuilt from the `licenses` row, so a resend sends identical bytes.
 
 ## Keys

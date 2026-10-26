@@ -24,6 +24,7 @@ import {
 import { reissueLicenseAction, revokeLicenseAction, sendKeyLinkAction } from '../actions';
 import { Notice } from '@/components/admin/notice';
 import { SubmitButton } from '@/components/admin/submit-button';
+import { TestLicenseForm } from '@/components/admin/test-license-form';
 import { formatUtc, licenseState } from '@/lib/admin/format';
 import { listApplications } from '@/lib/beta-access/service';
 import { getDb } from '@/lib/licensing/db/client';
@@ -98,6 +99,19 @@ export default async function LicensesPage({ searchParams }: { searchParams: Sea
             </Table>
           )}
           {applications.length === 500 && <p className="text-sm text-muted-foreground">Showing the newest 500.</p>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Test license</CardTitle>
+          <CardDescription>
+            A short-lived key for trying a build yourself. It works in release builds, isn&apos;t saved anywhere and
+            can&apos;t be revoked, so it just runs out.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TestLicenseForm />
         </CardContent>
       </Card>
 
