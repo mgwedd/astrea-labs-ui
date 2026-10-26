@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { MessagesSquare } from 'lucide-react';
 import {
   Badge,
   SidebarGroup,
@@ -46,5 +47,23 @@ function Group({ items, counts, pathname }: { items: NavItem[]; counts: NavCount
 
 export function SidebarNav({ counts }: { counts: NavCounts }) {
   const pathname = usePathname();
-  return <Group items={PRIMARY_NAV} counts={counts} pathname={pathname} />;
+  return (
+    <>
+      <Group items={PRIMARY_NAV} counts={counts} pathname={pathname} />
+      <SidebarGroup>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Forum">
+                <Link href="/forum">
+                  <MessagesSquare />
+                  <span>Forum</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </>
+  );
 }
