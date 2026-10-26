@@ -39,9 +39,6 @@ export default function PrivacyPage() {
           browser&apos;s user agent, as evidence of what you agreed to and when. Signed agreements also produce a PDF that we
           store privately and email to you. This data is kept in Neon Postgres and Vercel Blob, both hosted on Vercel.
         </p>
-        <p>TODO: retention period [COUNSEL TO CONFIRM]</p>
-        <p>TODO(legal): how long we keep license records, and how to ask us to delete them.</p>
-        <p>TODO(legal): contact address for privacy requests.</p>
       </div>
     </div>
   );
