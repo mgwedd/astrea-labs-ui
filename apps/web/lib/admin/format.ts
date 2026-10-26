@@ -36,6 +36,10 @@ export const NOTICES = {
   in_progress: { text: 'Another approval is in progress.', error: true },
   not_reviewable: { text: 'This submission is not awaiting review.', error: true },
   rejected: { text: 'Submission rejected.' },
+  test_sent: { text: 'Test email sent to you.' },
+  test_failed: { text: 'The test email could not be sent. Check the Resend settings.', error: true },
+  campaign_sent: { text: 'Campaign sent to Resend for delivery.' },
+  campaign_failed: { text: 'The campaign was not sent. Check the Resend settings.', error: true },
   invalid: { text: 'Some fields are missing or invalid.', error: true },
 } as const satisfies Record<string, { text: string; error?: boolean }>;
 

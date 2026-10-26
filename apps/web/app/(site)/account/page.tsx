@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { desc, eq } from 'drizzle-orm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@astrea/ui';
+import { EmailPreferences } from '@/components/account/email-preferences';
 import { PageHeader } from '@/components/page-header';
 import { requireUser } from '@/lib/auth/gate';
 import { getDb } from '@/lib/licensing/db/client';
@@ -63,6 +64,7 @@ export default async function AccountPage() {
             ))}
           </CardContent>
         </Card>
+        <EmailPreferences sub={user.sub} />
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Feedback</CardTitle>
