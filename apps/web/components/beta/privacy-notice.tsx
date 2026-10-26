@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 // Applicant privacy notice (spec sections E, H and D2). Retention is pending
-// counsel (appendix Q6), so it stays a TODO rather than a made-up period.
+// counsel (appendix Q6), so it is left out rather than given a made-up period.
 export function ApplicantPrivacyNotice() {
   return (
     <section aria-labelledby="privacy-heading" id="privacy" className="flex flex-col gap-5 text-sm text-muted-foreground">
@@ -63,8 +63,7 @@ export function ApplicantPrivacyNotice() {
         <h3 className="font-medium text-foreground">How long</h3>
         <p>
           Unsigned drafts are deleted after 7 days. Signed records are never edited; a correction is added as a new
-          record. TODO: retention period for applications and signed records, including declined ones (pending legal
-          review).
+          record.
         </p>
       </div>
 
@@ -73,7 +72,7 @@ export function ApplicantPrivacyNotice() {
         <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
           privacy notice
         </Link>{' '}
-        for more. TODO: how to ask for your record to be deleted, and a contact address for privacy requests.
+        for more.
       </p>
     </section>
   );

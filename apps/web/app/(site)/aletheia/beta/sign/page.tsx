@@ -98,8 +98,7 @@ export default async function SignPage({ searchParams }: { searchParams: Search 
             <InfoTip label="what we record when you sign">
               Signing stamps your typed name and today&apos;s UTC date into the document and adds a certificate page.
               We record the time of each step, your IP address and browser, and the document&apos;s SHA-256 before and
-              after signing, then seal the PDF so any later change shows. TODO: your right to a paper copy and how to
-              withdraw consent (pending legal review).
+              after signing, then seal the PDF so any later change shows.
             </InfoTip>
           </div>
         </CardHeader>
