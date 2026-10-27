@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import { DRAFT_RETENTION_DAYS, EMAIL_LOG_RETENTION_DAYS } from '@/lib/beta-access/retention';
 
-// Applicant privacy notice (spec sections E, H and D2). It gives no retention
-// period, so none is stated.
+// Applicant privacy notice. Every statement here is checked against the code:
+// retention in lib/beta-access/retention.ts, analytics in lib/analytics-filter.ts.
 export function ApplicantPrivacyNotice() {
   return (
     <section aria-labelledby="privacy-heading" id="privacy" className="flex flex-col gap-5 text-sm text-muted-foreground">
@@ -27,17 +28,23 @@ export function ApplicantPrivacyNotice() {
             trail.
           </li>
           <li>
-            <span className="font-medium text-foreground">Your IP address and browser user agent at the moment you
-            sign.</span>{' '}
-            This is standard e-signature evidence and is captured once, at signing. It&apos;s separate from the app:
-            Aletheia itself keeps no logs linking IP addresses to licenses.
+            <span className="font-medium text-foreground">Your IP address and browser user agent</span> when you sign,
+            and again when you confirm your license at renewal. This is standard e-signature evidence. It&apos;s
+            separate from the app: Aletheia itself keeps no logs linking IP addresses to licenses.
           </li>
           <li>
             Our review: the decision, the result and date of our license check, and any notes. If you&apos;re
             approved, your license ID with its issue and expiry dates, and any revocation. We don&apos;t keep the key
-            itself.
+            itself, but we can issue a fresh key link for your license.
           </li>
-          <li>A record of the emails we send you, so we can limit repeat requests.</li>
+          <li>
+            A log of the emails we send you (address, subject, type and time), so we can limit repeat requests and see
+            failed sends. Emails that contain a single-use link are logged without their content.
+          </li>
+          <li>
+            A session cookie (<code>beta_session</code>) while you sign or open your key link. It is needed for the
+            page to work and expires after one to two hours.
+          </li>
         </ul>
       </div>
 
@@ -45,30 +52,43 @@ export function ApplicantPrivacyNotice() {
         <h3 className="font-medium text-foreground">Why</h3>
         <p>
           To check that you&apos;re a licensed clinician, to keep a signed record of what you were told and agreed to
-          before you got a key, to issue and renew your key, and, if you ask, to email you when new versions ship.
+          before you got a key, and to issue and renew your key.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <h3 className="font-medium text-foreground">Who sees it</h3>
         <p>
-          Astrea Labs staff only, behind strong authentication. It&apos;s excluded from analytics, and these pages carry no
-          third-party trackers: no ad pixels and no session replay. Vercel hosts this site, the signing service and the
-          stored documents; Neon hosts the database; Resend sends our email. They act as our service providers. The
-          form uses Vercel BotID to check your browser when you submit.
+          Astrea Labs staff only, behind strong authentication. When you sign, we email the reviewer a copy of your
+          answers and the consents you ticked so we can decide on your application. These pages are left out of
+          analytics and carry no ad pixels or session replay. The rest of this site uses Vercel Web Analytics, which
+          doesn&apos;t see these pages or any query string.
+        </p>
+        <p>
+          Service providers process data for us: Vercel hosts this site and stores the signed documents and the keys
+          that seal them; Neon hosts the database; Resend sends our email; Auth0 runs the optional account you can
+          create after signing; GitHub receives feedback reports you choose to submit. The form uses Vercel BotID to
+          check your browser when you submit.
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <h3 className="font-medium text-foreground">How long</h3>
-        <p>
-          Unsigned drafts are deleted after 7 days. Signed records are never edited; a correction is added as a new
-          record.
-        </p>
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>Unsigned drafts are deleted after {DRAFT_RETENTION_DAYS} days.</li>
+          <li>
+            Signed applications, our review, license records and the signing evidence are kept for the term of the
+            license and six years after it ends. If you&apos;re declined, they&apos;re kept for six years from our
+            decision. They&apos;re never edited; a correction is added as a new record, and we can&apos;t remove them
+            on request during that time.
+          </li>
+          <li>The email log is deleted after {EMAIL_LOG_RETENTION_DAYS} days.</li>
+        </ul>
       </div>
 
       <p>
-        Please don&apos;t include any client or patient information anywhere in this application. See the full{' '}
+        Please don&apos;t include any client or patient information anywhere in this application. Questions about your
+        record: support@astrealabs.com. See the full{' '}
         <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
           privacy notice
         </Link>{' '}

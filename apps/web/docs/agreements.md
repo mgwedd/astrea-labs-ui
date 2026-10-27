@@ -7,7 +7,7 @@ One codebase serves every Astrea Labs agreement at two levels. This replaces the
 | | Simple accept (`level: 'accept'`) | Signed (`level: 'signed'`) |
 |---|---|---|
 | What the person does | Reads the terms, ticks one or more unticked boxes, presses Accept | Same, plus consents to electronic records and signing, and types their name as the signature |
-| Output | One evidence row | Evidence row plus a sealed PDF, emailed to the signer |
+| Output | One evidence row | Evidence row plus a sealed PDF, stored privately and downloadable by the signer |
 | PDF | No | Yes (`pdf-lib`), stored in private Vercel Blob |
 | Seal | None | Vercel KMS Ed25519 key (`SEAL_KMS_ISSUER_ID`) signs `ASEAL1\n${documentId}\n${pdfSha256}` |
 | Example | None yet | Aletheia beta (`ALETHEIA_BETA` in `lib/beta-access/content.ts`, page `/aletheia/beta`) |
@@ -62,7 +62,7 @@ Per acceptance:
 - when the agreement was shown, when each box was ticked, and when it was accepted (server UTC);
 - IP address and user agent (`ip`, `user_agent`).
 
-Signed agreements additionally store the sealed PDF and audit data in private Vercel Blob, and the PDF is emailed to the signer. Beta signing also records IP and user agent.
+Signed agreements additionally store the sealed PDF and audit data in private Vercel Blob, and the signer downloads the PDF from the confirmation and key pages. Beta signing also records IP and user agent.
 
 The same migration also creates `feedback_submissions`, which previously had no migration.
 
@@ -70,11 +70,11 @@ The same migration also creates `feedback_submissions`, which previously had no 
 
 - **Run the production migration before deploying** (see `docs/licensing.md`, Database).
 - Env vars used here (names only): `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `SEAL_KMS_ISSUER_ID`, `RESEND_API_KEY`, `BETA_REVIEW_EMAIL`. Without `SEAL_KMS_ISSUER_ID`, dev and preview seal with an ephemeral key that cannot be verified later.
-- Evidence rows and PDFs are kept; no retention period is set.
+- Retention: signed agreements and their evidence are kept for the term of the license and six years after it ends. Nothing in the code deletes them earlier. Unsigned drafts are deleted after 7 days and email logs after 90 days (`/api/beta/cleanup`).
 
 ## Notes
 
-- Signed and accepted records are append-only: database triggers block updates and deletes on `signed_documents` and `agreement_acceptances`. Application rows can be deleted. The decline email tells applicants to email support@astrealabs.com to ask for their application record to be deleted, and a declined applicant who reapplies after 3 months gets a new record while the old one is kept.
-- Signers of signed agreements get the sealed PDF by email. Accept-level agreements produce no copy.
+- Signed and accepted records are append-only: database triggers block updates and deletes on `signed_documents` and `agreement_acceptances`. The decline email says the signed application and the decision are kept for six years, and a declined applicant who reapplies after 3 months gets a new record while the old one is kept.
+- Signers of signed agreements download the sealed PDF from the confirmation page and, once licensed, the key page; it is not emailed. Accept-level agreements produce no copy.
 - Renewal re-attestation (`aletheia-beta-renewal`) is accept-level: the licensee re-ticks C2 on the key page and gets no copy.
 - Bump `DOC_VERSION` in `lib/beta-access/content.ts` on any change to the beta text.

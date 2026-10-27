@@ -1,9 +1,9 @@
 import { boolean, index, jsonb, pgTable, serial, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import type { AuditEvent } from '../../agreements/signed/pdf';
 
-// Licensing stores no IP addresses, device IDs or install counts, by design.
-// The one exception is signed_documents: IP and user agent at signing, as
-// e-signature evidence (spec section E).
+// Licensing stores no device IDs or install counts, by design. IP address and
+// user agent are stored only as agreement evidence: in signed_documents at
+// signing, and in agreement_acceptances when a licensee re-attests at renewal.
 
 export const licenses = pgTable(
   'licenses',

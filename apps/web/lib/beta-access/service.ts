@@ -38,7 +38,7 @@ import {
   type Deps,
 } from '../licensing/service';
 import { emailOutbox } from '../email/db/schema';
-import { emailSends, licenses } from '../licensing/db/schema';
+import { licenses } from '../licensing/db/schema';
 import type { BlobStore } from '../agreements/signed/blob';
 import { buildUnsignedPdf, type AuditEvent, type AuditTrail } from '../agreements/signed/pdf';
 import type { Seal, Sealer } from '../agreements/signed/seal';
@@ -49,6 +49,7 @@ import { ALETHEIA_RENEWAL, BETA_FRAME, REQUIRED_AT_APPLY, betaAgreement } from '
 import type { LegalDocs } from '../aletheia-docs';
 import { declineEmail, receivedEmail, reviewEmail, signLinkEmail } from './emails';
 import { consentRecords, sha256Hex } from './hash';
+import { DRAFT_RETENTION_DAYS, EMAIL_LOG_RETENTION_DAYS } from './retention';
 
 export type BetaDeps = Deps & {
   blob: BlobStore;
@@ -67,7 +68,7 @@ const DAY = 24 * HOUR;
 export const SIGN_LINK_TTL_MS = 7 * DAY;
 export const SIGNING_SESSION_TTL_MS = 2 * HOUR;
 export const KEY_SESSION_TTL_MS = 1 * HOUR;
-export const DRAFT_TTL_MS = 7 * DAY;
+export const DRAFT_TTL_MS = DRAFT_RETENTION_DAYS * DAY;
 /** Aletheia beta licenses run six months. */
 export const BETA_LICENSE_MONTHS = 6;
 /** Allowed client clock skew into the future. */
@@ -887,8 +888,7 @@ export async function resendKeyLink(deps: BetaDeps, lid: string): Promise<'sent'
 
 // ---------------------------------------------------------------- cleanup
 
-/** How long the email logs (email_sends, and sent or dismissed email_outbox rows) are kept. */
-export const EMAIL_LOG_RETENTION_DAYS = 90;
+export { EMAIL_LOG_RETENTION_DAYS };
 
 /**
  * Daily: delete unsigned drafts created more than 7 days ago that have no
