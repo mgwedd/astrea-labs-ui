@@ -1,4 +1,5 @@
 import { boolean, index, jsonb, pgTable, serial, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import type { AuditEvent } from '../../agreements/signed/pdf';
 
 // Licensing stores no IP addresses, device IDs or install counts, by design.
 // The one exception is signed_documents: IP and user agent at signing, as
@@ -136,8 +137,12 @@ export const signedDocuments = pgTable(
     unsignedSha256: text('unsigned_sha256').notNull(),
     pdfPath: text('pdf_path').notNull(),
     pdfSha256: text('pdf_sha256').notNull(),
-    auditPath: text('audit_path').notNull(),
-    auditSha256: text('audit_sha256').notNull(),
+    // The signing events. Null on rows signed before they were stored here;
+    // those keep them in the audit JSON at audit_path.
+    events: jsonb('events').$type<AuditEvent[]>(),
+    // Audit JSON in Blob: only on rows signed before events moved to this table.
+    auditPath: text('audit_path'),
+    auditSha256: text('audit_sha256'),
     sealAlg: text('seal_alg').notNull(),
     sealKeyId: text('seal_key_id').notNull(),
     sealFingerprint: text('seal_fingerprint'),

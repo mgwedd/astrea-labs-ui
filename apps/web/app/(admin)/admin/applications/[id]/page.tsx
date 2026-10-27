@@ -15,7 +15,7 @@ import {
 import { approveApplication, declineApplication } from '../../actions';
 import { ApplicationList } from '@/components/admin/applications/application-list';
 import { LicenseCheckFields } from '@/components/admin/applications/license-check-fields';
-import { CHECK_LABELS, FileLinks, SignedDocumentCard } from '@/components/admin/applications/signed-document-card';
+import { CHECK_LABELS, FileLinks, SignedDocumentCard, auditOk } from '@/components/admin/applications/signed-document-card';
 import { StatusNav } from '@/components/admin/applications/status-nav';
 import { Details } from '@/components/admin/details';
 import { Notice } from '@/components/admin/notice';
@@ -138,7 +138,7 @@ export default async function ApplicationPage({ params, searchParams }: Props) {
                     <span className="text-sm">
                       {d.docType} v{d.docVersion}, signed {formatUtc(d.signedAt)}
                     </span>
-                    {c.pdf === 'ok' && c.audit === 'ok' ? (
+                    {c.pdf === 'ok' && auditOk(c.audit) ? (
                       <FileLinks id={d.id} />
                     ) : (
                       <Badge variant="destructive">

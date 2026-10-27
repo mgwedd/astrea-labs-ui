@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateKeyPairSync, verify } from 'node:crypto';
 import path from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
@@ -21,7 +21,6 @@ import { devPublicKey, devSealer, sealMessage } from '@/lib/agreements/signed/se
 import {
   apply,
   approve,
-  auditPath,
   checkSignedDocument,
   cleanupDrafts,
   decline,
@@ -273,7 +272,7 @@ describe('signing link', () => {
 });
 
 describe('sign', () => {
-  it('stores the stamped PDF, audit JSON and evidence row, then marks the application submitted', async () => {
+  it('stores the stamped PDF and the evidence row with its events, then marks the application submitted', async () => {
     const session = await readyToSign({ c11: false });
     const [draft] = await deps.db.select().from(betaApplications);
     const r = await sign(deps, session, { name: '  jane   DOE ', consentEsignAt: new Date(clock.getTime() - 10_000).toISOString() }, meta);
@@ -293,15 +292,15 @@ describe('sign', () => {
       signerUa: meta.ua,
       unsignedSha256: draft.draftPdfSha256,
       pdfPath: signedPdfPath(r.documentId),
-      auditPath: auditPath(r.documentId),
+      auditPath: null,
+      auditSha256: null,
       sealAlg: 'Ed25519',
     });
 
     // Blobs present, hashes match, the draft is gone.
     const pdf = (await blob.get(doc.pdfPath))!;
-    const auditBytes = (await blob.get(doc.auditPath))!;
     expect(sha256Hex(pdf)).toBe(doc.pdfSha256);
-    expect(sha256Hex(auditBytes)).toBe(doc.auditSha256);
+    expect(await blob.get(signedPdfPath(r.documentId).replace('document.pdf', 'audit.json'))).toBeNull();
     expect(doc.pdfSha256).not.toBe(doc.unsignedSha256);
     expect(await blob.get(draft.draftPdfPath!)).toBeNull();
 
@@ -309,22 +308,21 @@ describe('sign', () => {
     const ok = verify(null, Buffer.from(sealMessage(doc.id, doc.pdfSha256)), devPublicKey(), Buffer.from(doc.seal, 'base64'));
     expect(ok).toBe(true);
 
-    // Audit events in order.
-    const audit = JSON.parse(new TextDecoder().decode(auditBytes));
-    expect(audit.events.map((e: { type: string }) => e.type)).toEqual([
+    // Audit events in order, on the row.
+    const events = doc.events!;
+    expect(events.map((e) => e.type)).toEqual([
       'document_created',
       'email_confirmed',
       'document_viewed',
       'consent_esign',
       'signed',
     ]);
-    const times = audit.events.map((e: { at: string }) => Date.parse(e.at));
+    const times = events.map((e) => Date.parse(e.at));
     expect([...times].sort((a, b) => a - b)).toEqual(times);
-    expect(audit).toMatchObject({ documentId: doc.id, pdfSha256: doc.pdfSha256, seal: { signature: doc.seal } });
 
     // Every consent block recorded; C12 at the e-sign time, unticked C11 blank.
     const blocks = new Map(doc.blocks.map((b) => [b.id, b.tickedAt]));
-    expect(blocks.get('C12')).toBe(audit.events[3].at);
+    expect(blocks.get('C12')).toBe(events[3]!.at);
     expect(blocks.get('C11')).toBe('');
     expect(blocks.get('B1')).toBe(blocks.get('B0'));
 
@@ -405,7 +403,7 @@ describe('sign', () => {
   it('leaves nothing submitted when a blob write fails, and can be retried', async () => {
     const session = await readyToSign();
     const body = { name: 'Jane Doe', consentEsignAt: clock.toISOString() };
-    failPut = (p) => p.endsWith('/audit.json');
+    failPut = (p) => p.endsWith('/document.pdf');
     expect(await sign(deps, session, body, meta)).toEqual({ ok: false, error: 'store_failed' });
     const [app] = await deps.db.select().from(betaApplications);
     expect(app).toMatchObject({ status: 'draft', documentId: null });
@@ -419,16 +417,20 @@ describe('sign', () => {
     expect(r.ok).toBe(true);
   });
 
-  it('removes the signed PDF it wrote when the audit write fails', async () => {
+  it('removes the signed PDF it wrote when the evidence row insert fails', async () => {
     const session = await readyToSign();
     const written: string[] = [];
     const put = blob.put;
     blob.put = async (p, b, t) => {
       written.push(p);
-      if (p.endsWith('/audit.json')) throw new Error('simulated');
       return put(p, b, t);
     };
-    await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta);
+    vi.spyOn(deps.db, 'execute').mockRejectedValueOnce(new Error('simulated'));
+    expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
+      ok: false,
+      error: 'store_failed',
+    });
+    expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
     const pdfPath = written.find((p) => p.endsWith('/document.pdf'))!;
     expect(await blob.get(pdfPath)).toBeNull();
   });
@@ -746,7 +748,7 @@ describe('admin signed-document review', () => {
     get: async (p: string) => (p === path ? bytes : blob.get(p)),
   });
 
-  it('serves the signed PDF and audit JSON when they match their recorded hashes', async () => {
+  it('serves the signed PDF when it matches its recorded hash, and the audit trail from the row', async () => {
     const { documentId } = await signed();
     const pdf = await readSignedFile(deps, documentId, 'pdf');
     expect(pdf).toMatchObject({ ok: true, contentType: 'application/pdf' });
@@ -758,7 +760,12 @@ describe('admin signed-document review', () => {
     const audit = await readSignedFile(deps, documentId, 'audit');
     expect(audit).toMatchObject({ ok: true, contentType: 'application/json' });
     if (!audit.ok) throw new Error('audit');
-    expect(JSON.parse(new TextDecoder().decode(audit.bytes))).toMatchObject({ documentId, pdfSha256: doc!.pdfSha256 });
+    expect(JSON.parse(new TextDecoder().decode(audit.bytes))).toMatchObject({
+      documentId,
+      pdfSha256: doc!.pdfSha256,
+      events: doc!.events,
+      seal: { signature: doc!.seal, keyId: doc!.sealKeyId },
+    });
   });
 
   it('refuses unknown documents, missing files and files that no longer match', async () => {
@@ -769,26 +776,53 @@ describe('admin signed-document review', () => {
       ok: false,
       reason: 'missing',
     });
-    expect(
-      await readSignedFile({ ...deps, blob: tampered(doc!.auditPath, new TextEncoder().encode('{}')) }, documentId, 'audit'),
-    ).toEqual({ ok: false, reason: 'integrity' });
   });
 
-  it('checks both files and reads the signing events from the audit trail', async () => {
+  it('checks the PDF and reads the signing events from the row', async () => {
     const { documentId } = await signed();
     const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
     const ok = await checkSignedDocument(deps, doc!);
-    expect(ok).toMatchObject({ pdf: 'ok', audit: 'ok', signerUa: meta.ua });
+    expect(ok).toMatchObject({ pdf: 'ok', audit: 'database', signerUa: meta.ua, events: doc!.events });
     expect(ok.events.map((e) => e.type)).toContain('signed');
 
-    const bad = await checkSignedDocument({ blob: tampered(doc!.auditPath, new TextEncoder().encode('x')) }, doc!);
-    expect(bad).toMatchObject({ pdf: 'ok', audit: 'integrity', events: [] });
-
     const badPdf = await checkSignedDocument({ blob: tampered(doc!.pdfPath, new Uint8Array([1])) }, doc!);
-    expect(badPdf).toMatchObject({ pdf: 'integrity', audit: 'ok' });
+    expect(badPdf).toMatchObject({ pdf: 'integrity', audit: 'database' });
 
     const down = { ...blob, get: async () => Promise.reject(new Error('storage down')) };
-    expect(await checkSignedDocument({ blob: down }, doc!)).toMatchObject({ pdf: 'unavailable', audit: 'unavailable', events: [] });
+    expect(await checkSignedDocument({ blob: down }, doc!)).toMatchObject({ pdf: 'unavailable', audit: 'database', events: doc!.events });
+  });
+
+  /** A row as signed before events moved to Postgres: no events, an audit JSON in Blob. */
+  async function legacyRow() {
+    const { documentId } = await signed();
+    const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId));
+    const id = '11111111-1111-4111-8111-111111111111';
+    const auditJson = JSON.stringify({ documentId: id, pdfSha256: doc!.pdfSha256, events: doc!.events });
+    const auditPath = `beta-access/signed/${id}/audit.json`;
+    await blob.put(auditPath, new TextEncoder().encode(auditJson), 'application/json');
+    const legacy = { ...doc!, id, events: null, auditPath, auditSha256: sha256Hex(auditJson) };
+    await deps.db.insert(signedDocuments).values(legacy);
+    return legacy;
+  }
+
+  it('falls back to the stored audit JSON on rows signed before events moved to Postgres', async () => {
+    const legacy = await legacyRow();
+    const ok = await checkSignedDocument(deps, legacy);
+    expect(ok).toMatchObject({ pdf: 'ok', audit: 'ok' });
+    expect(ok.events.map((e) => e.type)).toContain('signed');
+
+    const bad = await checkSignedDocument({ blob: tampered(legacy.auditPath, new TextEncoder().encode('x')) }, legacy);
+    expect(bad).toMatchObject({ pdf: 'ok', audit: 'integrity', events: [] });
+
+    const down = { ...blob, get: async () => Promise.reject(new Error('storage down')) };
+    expect(await checkSignedDocument({ blob: down }, legacy)).toMatchObject({ pdf: 'unavailable', audit: 'unavailable', events: [] });
+
+    const file = await readSignedFile(deps, legacy.id, 'audit');
+    if (!file.ok) throw new Error('audit');
+    expect(sha256Hex(file.bytes)).toBe(legacy.auditSha256);
+    expect(
+      await readSignedFile({ ...deps, blob: tampered(legacy.auditPath, new TextEncoder().encode('{}')) }, legacy.id, 'audit'),
+    ).toEqual({ ok: false, reason: 'integrity' });
   });
 
   it('lists every signed document for the application', async () => {
