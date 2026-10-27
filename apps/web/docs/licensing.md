@@ -4,7 +4,7 @@ The client contract is `LICENSING-CONTRACT.local.md` in the Aletheia repo. This 
 
 ## Client handoff
 
-The license key page has an "Open in Aletheia" button that opens `aletheia://license?key=...`. The Mac app must implement that URL handler; it checks the key offline.
+The license key page has an "Open in Aletheia" button that opens `aletheia://license?key=...`. The Mac app implements that URL handler and checks the key offline.
 
 ## Endpoints
 

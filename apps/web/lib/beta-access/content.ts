@@ -64,7 +64,6 @@ export const HANDLING: Block[] = [
   },
 ];
 
-// Our own wording (the spec gives none).
 export const B0: Block = {
   id: "B0",
   text: "I've read how Aletheia handles patient information and the disclosures B1 to B8 above.",

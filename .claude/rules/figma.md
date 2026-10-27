@@ -28,4 +28,4 @@ These rules apply whenever you use the Figma MCP server (`figma` in `.mcp.json`,
 
 ## Content
 
-The no-fabrication rule in `AGENTS.md` applies to Figma too. Placeholder copy from a design ("Lorem ipsum", sample stats, fake names) never reaches the site. Use registry data, or leave the spot out.
+The no-fabrication rule in `AGENTS.md` applies to Figma too. Placeholder copy from a design ("Lorem ipsum", sample stats, fake names) never reaches the site. Use registry data, or omit the spot.
