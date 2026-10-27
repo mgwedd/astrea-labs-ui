@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { applicationInputSchema, answersSchema, describeAnswers, US_STATES } from "@/lib/beta-access/answers";
+import {
+  applicationInputSchema,
+  answersSchema,
+  describeAnswers,
+  macRequirementWarnings,
+  US_STATES,
+} from "@/lib/beta-access/answers";
 import { REQUIRED_AT_APPLY } from "@/lib/beta-access/content";
 
 const valid = {
@@ -117,5 +123,29 @@ describe("describeAnswers", () => {
     expect(rows[8].value).toBe("Washington, Oregon");
     expect(rows[9].value).toBe("In person, Telehealth (video)");
     expect(rows[11].value).toBe("Apple silicon, macOS 26");
+  });
+});
+
+describe("macRequirementWarnings", () => {
+  it("is empty for a Mac that meets the requirements", () => {
+    expect(macRequirementWarnings("apple-silicon", "14")).toEqual([]);
+    expect(macRequirementWarnings("apple-silicon", "27-plus")).toEqual([]);
+    expect(macRequirementWarnings("", "")).toEqual([]);
+  });
+
+  it("warns that macOS 13 or older can't install the app", () => {
+    const [w] = macRequirementWarnings("apple-silicon", "13-or-older");
+    expect(w).toMatch(/won't install/);
+    expect(w).toMatch(/macOS 14/);
+  });
+
+  it("warns that Intel Macs are slower", () => {
+    const [w] = macRequirementWarnings("intel", "15");
+    expect(w).toMatch(/Intel/);
+    expect(w).toMatch(/slower/);
+  });
+
+  it("gives both warnings for an Intel Mac on macOS 13", () => {
+    expect(macRequirementWarnings("intel", "13-or-older")).toHaveLength(2);
   });
 });
