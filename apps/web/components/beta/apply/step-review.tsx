@@ -76,7 +76,6 @@ export function StepReview({
           rows={[
             { id: 'B0', label: 'Patient information and disclosures', value: 'B0' in consents ? 'Read (B0)' : 'Not ticked' },
             { id: 'C', label: 'Attestations', value: `${ticked} of ${attestations.length} ticked (C1–C10)` },
-            { id: 'C11', label: 'Release emails', value: 'C11' in consents ? 'Yes' : 'No' },
           ]}
         />
       </Section>

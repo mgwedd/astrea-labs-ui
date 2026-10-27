@@ -44,7 +44,7 @@ import type { Seal, Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
 import { acceptAgreement, type Db as AgreementsDb } from '../agreements/service';
-import { ALETHEIA_RENEWAL, BETA_FRAME, OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY, betaAgreement } from './content';
+import { ALETHEIA_RENEWAL, BETA_FRAME, REQUIRED_AT_APPLY, betaAgreement } from './content';
 import type { LegalDocs } from '../aletheia-docs';
 import { declineEmail, receivedEmail, reviewEmail, signLinkEmail } from './emails';
 import { consentRecords, sha256Hex } from './hash';
@@ -106,7 +106,7 @@ export type ApplyOutcome = 'sent' | 'exists' | 'rate_limited' | { invalid: strin
  * the future (1 minute of clock skew allowed).
  */
 export function checkApplyConsents(consents: Record<string, string>, now: Date): string | null {
-  const allowed = new Set([...REQUIRED_AT_APPLY, ...OPTIONAL_AT_APPLY]);
+  const allowed = new Set(REQUIRED_AT_APPLY);
   for (const id of REQUIRED_AT_APPLY) if (!Object.hasOwn(consents, id)) return `Consent ${id} is required.`;
   for (const [id, at] of Object.entries(consents)) {
     if (!allowed.has(id)) return `Unexpected consent ${id}.`;
@@ -179,7 +179,6 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
       { d: 'terms' as const, v: docs.terms.version, h: docs.terms.sha256 },
       { d: 'privacy' as const, v: docs.privacy.version, h: docs.privacy.sha256 },
     ],
-    updatesOptIn: Object.hasOwn(input.consents, 'C11'),
     signLinkHash: hashLinkToken(token),
     signLinkExpiresAt: expiresAt,
     ...resetDraft,
@@ -650,7 +649,7 @@ export async function approve(deps: BetaDeps, input: ReviewInput & { licenseChec
   let lid: string | null = null;
   let review: DocumentReview;
   try {
-    const license = await issueLicense(deps, app.email, app.updatesOptIn, addMonths(now, BETA_LICENSE_MONTHS));
+    const license = await issueLicense(deps, app.email, addMonths(now, BETA_LICENSE_MONTHS));
     lid = license.lid;
     await deps.db.update(betaApplications).set({ lid }).where(eq(betaApplications.id, app.id));
     // The append-only review row goes last, so nothing before it needs undoing once it exists.

@@ -65,7 +65,7 @@ export function reviewEmail(input: {
 }): Omit<Mail, 'to'> {
   const { application: app, document: doc } = input;
   const answers = describeAnswers(app.answers as Answers);
-  // The ticked boxes: B0 and C1..C12 (an unticked C11 has no tick time).
+  // The ticked boxes: B0 and C1..C12.
   const consents = doc.blocks.filter((b: ConsentRecord) => b.tickedAt && (b.id === 'B0' || b.id.startsWith('C')));
   const facts: [string, string][] = [
     ['Application', app.id],

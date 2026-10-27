@@ -10,7 +10,6 @@ export const licenses = pgTable(
   {
     lid: uuid('lid').primaryKey(),
     email: text('email').notNull(), // lowercased
-    updatesOptIn: boolean('updates_opt_in').notNull().default(false),
     tier: text('tier').notNull().default('beta'),
     kid: text('kid').notNull(),
     issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(), // token iat
@@ -89,7 +88,6 @@ export const betaApplications = pgTable(
     // The terms and privacy documents as they were when C1 was ticked. Null on
     // applications from before this was recorded.
     acceptedDocs: jsonb('accepted_docs').$type<AcceptedDoc[]>(),
-    updatesOptIn: boolean('updates_opt_in').notNull().default(false),
     status: text('status', { enum: ['draft', 'submitted', 'approved', 'declined'] }).notNull().default('draft'),
     // Signing link (single use). Only its SHA-256 is stored.
     signLinkHash: text('sign_link_hash'),

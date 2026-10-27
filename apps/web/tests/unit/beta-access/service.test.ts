@@ -94,9 +94,9 @@ beforeEach(async () => {
 const advance = (ms: number) => (clock = new Date(clock.getTime() + ms));
 const meta = { ip: '203.0.113.7', ua: 'Mozilla/5.0 (Macintosh) test' };
 
-function input(over: { email?: string; fullName?: string; consents?: Record<string, string>; c11?: boolean } = {}) {
+function input(over: { email?: string; fullName?: string; consents?: Record<string, string>} = {}) {
   const at = clock.toISOString();
-  const consents = over.consents ?? Object.fromEntries([...REQUIRED_AT_APPLY, ...(over.c11 ? ['C11'] : [])].map((id) => [id, at]));
+  const consents = over.consents ?? Object.fromEntries(REQUIRED_AT_APPLY.map((id) => [id, at]));
   return applicationInputSchema.parse({
     legalVersion: LEGAL_VERSION,
     answers: {
@@ -145,10 +145,10 @@ const licenseCheck = { source: 'board' as const, result: 'Active, WA LICSW', che
 
 describe('apply', () => {
   it('stores a draft and emails a signing link, not a key', async () => {
-    expect(await apply(deps, input({ c11: true }))).toBe('sent');
+    expect(await apply(deps, input())).toBe('sent');
     const [app] = await deps.db.select().from(betaApplications);
-    expect(app).toMatchObject({ email: 'jane@example.com', status: 'draft', updatesOptIn: true, documentId: null });
-    expect(app.consents.map((c) => c.id)).toEqual([...REQUIRED_AT_APPLY, 'C11']);
+    expect(app).toMatchObject({ email: 'jane@example.com', status: 'draft', documentId: null });
+    expect(app.consents.map((c) => c.id)).toEqual(REQUIRED_AT_APPLY);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe('jane@example.com');
     const t = signLinkIn(sent[0]);
@@ -273,7 +273,7 @@ describe('signing link', () => {
 
 describe('sign', () => {
   it('stores the stamped PDF and the evidence row with its events, then marks the application submitted', async () => {
-    const session = await readyToSign({ c11: false });
+    const session = await readyToSign();
     const [draft] = await deps.db.select().from(betaApplications);
     const r = await sign(deps, session, { name: '  jane   DOE ', consentEsignAt: new Date(clock.getTime() - 10_000).toISOString() }, meta);
     expect(r.ok).toBe(true);
@@ -320,10 +320,9 @@ describe('sign', () => {
     const times = events.map((e) => Date.parse(e.at));
     expect([...times].sort((a, b) => a - b)).toEqual(times);
 
-    // Every consent block recorded; C12 at the e-sign time, unticked C11 blank.
+    // Every consent block recorded; C12 at the e-sign time.
     const blocks = new Map(doc.blocks.map((b) => [b.id, b.tickedAt]));
     expect(blocks.get('C12')).toBe(events[3]!.at);
-    expect(blocks.get('C11')).toBe('');
     expect(blocks.get('B1')).toBe(blocks.get('B0'));
 
     // Emails: received to the applicant, every answer to the reviewer, no attachments, no key.
@@ -543,7 +542,7 @@ describe('terms version', () => {
 
 describe('approve', () => {
   it('records the review, issues a 6-month license and emails a key link that reveals it once', async () => {
-    const { app, documentId } = await signed({ c11: true });
+    const { app, documentId } = await signed();
     advance(DAY);
     const r = await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck, notes: 'ok' });
     expect(r.ok).toBe(true);
@@ -552,7 +551,7 @@ describe('approve', () => {
     expect(r.review).toMatchObject({ decision: 'approved', documentId, applicationId: app.id, lid: r.lid, reviewer: 'mw' });
 
     const [license] = await deps.db.select().from(licenses);
-    expect(license).toMatchObject({ lid: r.lid, email: 'jane@example.com', updatesOptIn: true });
+    expect(license).toMatchObject({ lid: r.lid, email: 'jane@example.com' });
     expect(license.expiresAt).toEqual(addMonths(clock, BETA_LICENSE_MONTHS));
     const [after] = await deps.db.select().from(betaApplications);
     expect(after).toMatchObject({ status: 'approved', lid: r.lid });

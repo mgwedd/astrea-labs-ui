@@ -82,7 +82,6 @@ export default async function ApplicationPage({ params, searchParams }: Props) {
                   ['Email', app.email],
                   ['Started', formatUtc(app.createdAt)],
                   ['Email confirmed', formatUtc(app.emailConfirmedAt)],
-                  ['Product updates', app.updatesOptIn ? 'Opted in' : 'No'],
                   ['License', app.lid ? <code className="break-all">{app.lid}</code> : '—'],
                 ]}
               />

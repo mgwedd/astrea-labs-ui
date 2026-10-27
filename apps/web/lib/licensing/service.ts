@@ -100,7 +100,6 @@ export function tokenFor(license: License, key: SigningKey, accepted: Acceptance
 export async function issueLicense(
   deps: Deps,
   email: string,
-  updatesOptIn: boolean,
   expiresAt?: Date | null,
   opts: { attestationRequired?: boolean } = {},
 ): Promise<License> {
@@ -112,7 +111,6 @@ export async function issueLicense(
     .values({
       lid: randomUUID(),
       email,
-      updatesOptIn,
       kid: deps.key.kid,
       issuedAt,
       expiresAt: expiresAt && wholeSeconds(expiresAt),
@@ -350,7 +348,6 @@ export async function reissueLicense(
     /** Who revoked the old license; recorded when revokeOld is set. */
     by?: string;
     kind?: 'reissue' | 'renewal';
-    updatesOptIn?: boolean;
     expiresAt?: Date | null;
   } = {},
 ): Promise<License | undefined> {
@@ -363,7 +360,7 @@ export async function reissueLicense(
       ? opts.expiresAt
       : old.expiresAt && new Date(now.getTime() + (old.expiresAt.getTime() - old.issuedAt.getTime()));
   const attestationRequired = opts.kind === 'renewal' || (old.attestationRequired && !old.attestedAt);
-  const created = await issueLicense(deps, old.email, old.updatesOptIn || opts.updatesOptIn === true, expiresAt, {
+  const created = await issueLicense(deps, old.email, expiresAt, {
     attestationRequired,
   });
   // Point the application (if any) at the new lid so its key page links the signed copy.
