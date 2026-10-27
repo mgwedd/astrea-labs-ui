@@ -37,6 +37,7 @@ import {
   sendKeyLink,
   type Deps,
 } from '../licensing/service';
+import { emailOutbox } from '../email/db/schema';
 import { licenses } from '../licensing/db/schema';
 import type { BlobStore } from '../agreements/signed/blob';
 import { buildUnsignedPdf, type AuditEvent, type AuditTrail } from '../agreements/signed/pdf';
@@ -44,10 +45,11 @@ import type { Seal, Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
 import { acceptAgreement, type Db as AgreementsDb } from '../agreements/service';
-import { ALETHEIA_RENEWAL, BETA_FRAME, OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY, betaAgreement } from './content';
+import { ALETHEIA_RENEWAL, BETA_FRAME, REQUIRED_AT_APPLY, betaAgreement } from './content';
 import type { LegalDocs } from '../aletheia-docs';
 import { declineEmail, receivedEmail, reviewEmail, signLinkEmail } from './emails';
 import { consentRecords, sha256Hex } from './hash';
+import { DRAFT_RETENTION_DAYS, EMAIL_LOG_RETENTION_DAYS } from './retention';
 
 export type BetaDeps = Deps & {
   blob: BlobStore;
@@ -66,7 +68,7 @@ const DAY = 24 * HOUR;
 export const SIGN_LINK_TTL_MS = 7 * DAY;
 export const SIGNING_SESSION_TTL_MS = 2 * HOUR;
 export const KEY_SESSION_TTL_MS = 1 * HOUR;
-export const DRAFT_TTL_MS = 7 * DAY;
+export const DRAFT_TTL_MS = DRAFT_RETENTION_DAYS * DAY;
 /** Aletheia beta licenses run six months. */
 export const BETA_LICENSE_MONTHS = 6;
 /** Allowed client clock skew into the future. */
@@ -106,7 +108,7 @@ export type ApplyOutcome = 'sent' | 'exists' | 'rate_limited' | { invalid: strin
  * the future (1 minute of clock skew allowed).
  */
 export function checkApplyConsents(consents: Record<string, string>, now: Date): string | null {
-  const allowed = new Set([...REQUIRED_AT_APPLY, ...OPTIONAL_AT_APPLY]);
+  const allowed = new Set(REQUIRED_AT_APPLY);
   for (const id of REQUIRED_AT_APPLY) if (!Object.hasOwn(consents, id)) return `Consent ${id} is required.`;
   for (const [id, at] of Object.entries(consents)) {
     if (!allowed.has(id)) return `Unexpected consent ${id}.`;
@@ -179,7 +181,6 @@ export async function apply(deps: BetaDeps, input: ApplicationInput): Promise<Ap
       { d: 'terms' as const, v: docs.terms.version, h: docs.terms.sha256 },
       { d: 'privacy' as const, v: docs.privacy.version, h: docs.privacy.sha256 },
     ],
-    updatesOptIn: Object.hasOwn(input.consents, 'C11'),
     signLinkHash: hashLinkToken(token),
     signLinkExpiresAt: expiresAt,
     ...resetDraft,
@@ -650,7 +651,7 @@ export async function approve(deps: BetaDeps, input: ReviewInput & { licenseChec
   let lid: string | null = null;
   let review: DocumentReview;
   try {
-    const license = await issueLicense(deps, app.email, app.updatesOptIn, addMonths(now, BETA_LICENSE_MONTHS));
+    const license = await issueLicense(deps, app.email, addMonths(now, BETA_LICENSE_MONTHS));
     lid = license.lid;
     await deps.db.update(betaApplications).set({ lid }).where(eq(betaApplications.id, app.id));
     // The append-only review row goes last, so nothing before it needs undoing once it exists.
@@ -887,6 +888,8 @@ export async function resendKeyLink(deps: BetaDeps, lid: string): Promise<'sent'
 
 // ---------------------------------------------------------------- cleanup
 
+export { EMAIL_LOG_RETENTION_DAYS };
+
 /**
  * Daily: delete unsigned drafts created more than 7 days ago that have no
  * live link or session, and their draft PDFs. Signed records are never touched.
@@ -914,4 +917,20 @@ export async function cleanupDrafts(deps: BetaDeps, limit = 500): Promise<{ dele
     .where(and(inArray(betaApplications.id, ids), eq(betaApplications.status, 'draft'), isNull(betaApplications.documentId)))
     .returning({ id: betaApplications.id });
   return { deleted: deleted.length };
+}
+
+/**
+ * Daily: delete email log rows older than EMAIL_LOG_RETENTION_DAYS, whatever their
+ * status. The logs hold addresses, subjects and send times, and exist for rate limits
+ * and for finding failed sends. Bodies are kept only for failed mail that is not
+ * marked secret, and go with the row.
+ */
+export async function cleanupEmailLogs(deps: BetaDeps): Promise<{ sends: number; outbox: number }> {
+  const cutoff = new Date(nowOf(deps).getTime() - EMAIL_LOG_RETENTION_DAYS * DAY);
+  const sends = await deps.db.delete(emailSends).where(lt(emailSends.sentAt, cutoff)).returning({ id: emailSends.id });
+  const outbox = await deps.db
+    .delete(emailOutbox)
+    .where(lt(emailOutbox.createdAt, cutoff))
+    .returning({ id: emailOutbox.id });
+  return { sends: sends.length, outbox: outbox.length };
 }

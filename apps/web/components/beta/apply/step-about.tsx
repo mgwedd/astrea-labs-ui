@@ -367,7 +367,7 @@ export function StepAbout({ draft, errors, update }: Props) {
       <Separator />
 
       <div className="flex flex-col gap-6">
-        <SectionTitle info="Aletheia needs macOS 14 or later. AI features need Apple silicon.">Your Mac</SectionTitle>
+        <SectionTitle info="Aletheia needs macOS 14 or later. Apple silicon with 16 GB is recommended; Intel Macs work with smaller, slower models.">Your Mac</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id={fieldId('mac.chip')} label="Chip" error={errors['mac.chip']}>
             <OptionSelect

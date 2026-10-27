@@ -12,7 +12,7 @@ const MIGRATIONS = ['0011_forum.sql', '0012_forum_reports.sql'].map((f) => readF
 export async function newDb(): Promise<Db> {
   const pg = new PGlite();
   await pg.exec(`create table licenses (
-    lid uuid primary key, email text not null, updates_opt_in boolean not null default false, tier text not null default 'beta',
+    lid uuid primary key, email text not null, tier text not null default 'beta',
     kid text not null default 'k', issued_at timestamptz not null default now(), expires_at timestamptz, revoked_at timestamptz,
     revoked_reason text, revoked_by text, replaced_by uuid, renewal_sent_at timestamptz, attestation_required boolean not null default false,
     attested_at timestamptz, created_at timestamptz not null default now());`);

@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 const REQUIREMENTS = [
   'You’re a licensed clinician, or pre-licensed under a licensed supervisor',
   'A Mac on macOS 14 or later',
-  'Apple silicon, for the AI features',
+  'Apple silicon with 16 GB of memory recommended; Intel Macs work with smaller, slower models',
+  'About 3 to 8 GB of free disk space, including the AI models',
 ];
 
 const STEPS = [

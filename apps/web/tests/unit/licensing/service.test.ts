@@ -69,8 +69,8 @@ async function keyIn(m: Mail, attest?: () => Promise<boolean>): Promise<string> 
 }
 
 /** A non-expiring license, as an admin (or approval) would create it. No email. */
-async function issue(email: string, updatesOptIn = false) {
-  return issueLicense(deps, email, updatesOptIn, null);
+async function issue(email: string) {
+  return issueLicense(deps, email, null);
 }
 
 /** Issues a license, then has an admin reissue it with an expiry `days` from now. Returns the expiring row. */
@@ -89,7 +89,7 @@ describe('claims in minted tokens', () => {
 
 describe('issueLicense', () => {
   it('defaults to a 12-month expiry when none is passed', async () => {
-    const row = await issueLicense(deps, 'default@example.com', false);
+    const row = await issueLicense(deps, 'default@example.com');
     expect(DEFAULT_LICENSE_MONTHS).toBe(12);
     expect(row.expiresAt!.getTime()).toBe(Math.floor(addMonths(clock, 12).getTime() / 1000) * 1000);
   });
@@ -211,12 +211,11 @@ describe('key links', () => {
 
 describe('reissue and renewal', () => {
   it('reissue gives a new lid, keeps it non-expiring, links the old one, and can revoke it', async () => {
-    const old = await issue('ann@example.com', true);
+    const old = await issue('ann@example.com');
     clock = new Date(clock.getTime() + 10 * DAY);
     const created = await reissueLicense(deps, old.lid, { revokeOld: true, reason: 'lost device' });
     expect(created!.lid).not.toBe(old.lid);
     expect(created!.expiresAt).toBeNull();
-    expect(created!.updatesOptIn).toBe(true);
     const [after] = await deps.db.select().from(licenses).where(eq(licenses.lid, old.lid));
     expect(after.replacedBy).toBe(created!.lid);
     expect(after.revokedReason).toBe('lost device');

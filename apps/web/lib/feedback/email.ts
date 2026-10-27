@@ -26,5 +26,5 @@ export function confirmationEmail(input: { confirmUrl: string; projectSlug: stri
 <p style="color:#555;font-size:13px">The link works once and expires in 24 hours. Your email address is never posted. If you did not submit this, ignore this email and nothing will be posted.</p>
 <p>— Astrea Labs</p>
 </body></html>`;
-  return { subject: `Confirm your ${kind} for ${project}`, text, html };
+  return { subject: `Confirm your ${kind} for ${project}`, text, html, secret: true };
 }

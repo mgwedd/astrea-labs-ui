@@ -10,7 +10,6 @@ const headers = { 'Cache-Control': 'no-store' };
 // "Lost my license": emails a single-use key link if the address has an active
 // license, and nothing otherwise. The reply is 202 whether the address is
 // licensed, unknown, blocked or rate-limited, so it reveals nothing.
-// (Extra fields such as the old form's updatesOptIn are ignored.)
 export async function POST(request: Request) {
   if (!isSameOriginJson(request, siteUrlFor(request))) return Response.json({ error: 'Request blocked.' }, { status: 403, headers });
   const verdict = await checkBotId();

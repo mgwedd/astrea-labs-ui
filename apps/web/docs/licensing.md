@@ -10,11 +10,19 @@ The license key page has an "Open in Aletheia" button that opens `aletheia://lic
 
 | Route | Method | Auth | Purpose |
 |---|---|---|---|
-| `/aletheia/beta` | page | none | Email form (one email field, unticked updates box). |
-| `/api/licenses/request` | POST `{email, updatesOptIn}` | BotID | Issues a license, or resends the active one. Always `202 {ok:true}` so addresses can't be probed. Limit: 3/hour, 6/day per email. An address with a revoked, unreplaced, unexpired license gets nothing until an admin reissues. |
+| `/aletheia/beta` | page | none | Entry point (the app's "Get a Key…" opens it): how the beta works, the applicant privacy notice, "Resume signing" and "Lost my license" forms, and a link to `/aletheia/beta/apply`. |
+| `/api/licenses/request` | POST `{email}` | BotID | "Lost my license": emails a single-use key link if the address has an active license. Issues nothing. Always `202 {ok:true}` so addresses can't be probed. Limit: 3/hour, 6/day per email. An address with a revoked, unreplaced, unexpired license gets nothing until an admin reissues. |
 | `/api/licenses/revocations` | GET | none | Signed `ALETR1.` list. `Cache-Control: public, max-age=3600`. Query strings 301 to the bare URL so they can't split the CDN cache. No cookies or logging. |
-| `/api/licenses/admin` | POST | `Bearer LICENSE_ADMIN_TOKEN` | `{action:"list",email}`, `{action:"revoke",lid,reason,by}` (also revokes its renewals), `{action:"reissue",lid,revokeOld,reason?,expiresAt?,by?}` (`expiresAt`: ISO date-time, or `null` for never; omitted keeps the old license's policy). `by` names who revoked and is stored on the license; it is required for revoke and for reissue with `revokeOld`. |
+| `/api/licenses/admin` | POST | `Bearer LICENSE_ADMIN_TOKEN` | `{action:"applications",status?}` lists applications, `{action:"application",id}` returns one, `{action:"approve",applicationId,reviewer,licenseCheck:{source:"board"\|"nppes",result,checkedAt},notes?}` and `{action:"decline",applicationId,reviewer,licenseCheck?,notes?}` (submitted applications only; 409 otherwise), `{action:"key-link",lid}` emails a fresh key link, `{action:"list",email}`, `{action:"revoke",lid,reason,by}` (also revokes its renewals), `{action:"reissue",lid,revokeOld,reason?,expiresAt?,by?}` (`expiresAt`: ISO date-time, or `null` for never; omitted keeps the old license's policy). `by` names who revoked and is stored on the license; it is required for revoke and for reissue with `revokeOld`. |
 | `/api/licenses/renewals` | GET (Vercel Cron, daily 15:00 UTC) | `Bearer CRON_SECRET` | Emails a fresh license, of the same length, to anyone with an expiring license within 30 days of its end (`RENEWAL_WINDOW_DAYS` in `lib/licensing/service.ts`). The key page shows a renewed key only after the licensee confirms C2 again (`/api/beta/key` answers `409` until then); the confirmation is stored as an `aletheia-beta-renewal` acceptance. |
+
+## Reviewing an application
+
+1. A signed application emails `BETA_REVIEW_EMAIL` a copy of the answers with a link to `/admin/applications/<id>`. Sign in as an admin (`ADMIN_EMAILS`).
+2. Check the license with the issuing board (or NPPES) and note the result.
+3. Approve or decline on that page, choosing the license check source (`board` or `nppes`), its result and the date. Approve needs a license check; decline doesn't.
+4. Approve issues a 6-month license and emails the applicant a single-use key link. Decline sends a short neutral email and allows reapplying after 3 months.
+5. The same actions are available through `/api/licenses/admin` (above). To resend a key link, use `key-link` or the applicant's "Lost my license" form.
 
 ## Terms and privacy (acceptance records)
 
@@ -44,7 +52,7 @@ The seed goes to stdout (piped straight into Vercel); `{kid, publicKey}` goes to
 
 ## Env vars
 
-`DATABASE_URL`, `LICENSE_SIGNING_KID`, `LICENSE_SIGNING_SEED`, `RESEND_API_KEY`, `LICENSE_EMAIL_FROM`, `LICENSE_ADMIN_TOKEN`, `CRON_SECRET`.
+`DATABASE_URL`, `LICENSE_SIGNING_KID`, `LICENSE_SIGNING_SEED`, `RESEND_API_KEY`, `LICENSE_EMAIL_FROM`, `LICENSE_ADMIN_TOKEN`, `CRON_SECRET`, `BETA_REVIEW_EMAIL`, `ADMIN_EMAILS`, `SEAL_KMS_ISSUER_ID`, `BLOB_READ_WRITE_TOKEN`. The download link in key emails is `<site>/aletheia/download`; no env var sets it.
 
 ## Database
 
@@ -81,4 +89,4 @@ vercel env run -e development -- pnpm --filter @astrea/web dev:https   # https:/
 
 ## Privacy
 
-The licensing tables store no IPs, device IDs or install counts, and the revocation route logs nothing. Beta signing and simple accept (see `docs/agreements.md`) do store IP address and user agent as evidence. Vercel Web Analytics is not installed in this app; if it's added later, exclude `/api/licenses/*`.
+The licensing tables store no IPs, device IDs or install counts, and the revocation route logs nothing. Beta signing and simple accept (see `docs/agreements.md`) do store IP address and user agent as evidence. Vercel Web Analytics runs on the public site but drops `/aletheia/beta*`, `/api/beta*` and `/admin*` and strips query strings (`lib/analytics-filter.ts`). Retention: unsigned drafts 7 days and email logs 90 days, both deleted by the daily `/api/beta/cleanup` cron; signed documents, reviews and acceptances are protected by database triggers and kept at least for the license term plus six years; nothing deletes them automatically.

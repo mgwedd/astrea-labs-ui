@@ -1,6 +1,6 @@
 'use client';
 
-import { OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY, blockById } from '@/lib/beta-access/content';
+import { REQUIRED_AT_APPLY, blockById } from '@/lib/beta-access/content';
 import { ConsentCheckbox } from '../consent-checkbox';
 
 export function StepAttestations({
@@ -15,7 +15,6 @@ export function StepAttestations({
   errors: Record<string, string>;
 }) {
   const REQUIRED = REQUIRED_AT_APPLY.filter((id) => id.startsWith('C')).map((id) => blockById(id, legalVersion));
-  const OPTIONAL = OPTIONAL_AT_APPLY.map((id) => blockById(id, legalVersion));
   return (
     <div className="flex flex-col gap-6">
       <p className="text-sm text-muted-foreground">
@@ -29,17 +28,6 @@ export function StepAttestations({
             checked={block.id in consents}
             onCheckedChange={(v) => setConsent(block.id, v)}
             error={errors[block.id]}
-          />
-        ))}
-      </div>
-      <div className="flex flex-col border-t pt-3">
-        {OPTIONAL.map((block) => (
-          <ConsentCheckbox
-            key={block.id}
-            block={block}
-            optional
-            checked={block.id in consents}
-            onCheckedChange={(v) => setConsent(block.id, v)}
           />
         ))}
       </div>

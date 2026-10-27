@@ -1,7 +1,7 @@
 // Aletheia beta access form: section A answers (schema, options, display).
 // Client-safe: no node imports.
 import { z } from "zod";
-import { OPTIONAL_AT_APPLY, REQUIRED_AT_APPLY } from "./content";
+import { REQUIRED_AT_APPLY } from "./content";
 
 export const LIMITS = { short: 200, long: 2000 };
 
@@ -213,7 +213,7 @@ export const answersSchema = baseAnswers.superRefine((a, ctx) => {
 
 export type Answers = z.infer<typeof answersSchema>;
 
-const allowedConsentIds = new Set([...REQUIRED_AT_APPLY, ...OPTIONAL_AT_APPLY]);
+const allowedConsentIds = new Set(REQUIRED_AT_APPLY);
 
 export const applicationInputSchema = z.object({
   /** The Terms/Privacy version C1 named when it was shown. */

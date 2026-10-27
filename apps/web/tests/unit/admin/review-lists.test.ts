@@ -6,7 +6,6 @@ const NOW = new Date('2026-01-10T00:00:00Z');
 const lic = (o: Partial<License>): License => ({
   lid: 'aaaaaaaa-0000-4000-8000-000000000001',
   email: 'a@example.com',
-  updatesOptIn: false,
   tier: 'beta',
   kid: 'k',
   issuedAt: new Date('2025-01-01T00:00:00Z'),

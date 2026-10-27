@@ -16,6 +16,7 @@ import { memoryBlobStore, type BlobStore } from '@/lib/agreements/signed/blob';
 import { ALETHEIA_RENEWAL, REQUIRED_AT_APPLY } from '@/lib/beta-access/content';
 import type { LegalDocs } from '@/lib/aletheia-docs';
 import { agreementAcceptances } from '@/lib/agreements/db/schema';
+import { emailOutbox } from '@/lib/email/db/schema';
 import { sha256Hex } from '@/lib/beta-access/hash';
 import { devPublicKey, devSealer, sealMessage } from '@/lib/agreements/signed/seal';
 import {
@@ -23,6 +24,8 @@ import {
   approve,
   checkSignedDocument,
   cleanupDrafts,
+  cleanupEmailLogs,
+  EMAIL_LOG_RETENTION_DAYS,
   decline,
   getApplication,
   getDocument,
@@ -94,9 +97,9 @@ beforeEach(async () => {
 const advance = (ms: number) => (clock = new Date(clock.getTime() + ms));
 const meta = { ip: '203.0.113.7', ua: 'Mozilla/5.0 (Macintosh) test' };
 
-function input(over: { email?: string; fullName?: string; consents?: Record<string, string>; c11?: boolean } = {}) {
+function input(over: { email?: string; fullName?: string; consents?: Record<string, string>} = {}) {
   const at = clock.toISOString();
-  const consents = over.consents ?? Object.fromEntries([...REQUIRED_AT_APPLY, ...(over.c11 ? ['C11'] : [])].map((id) => [id, at]));
+  const consents = over.consents ?? Object.fromEntries(REQUIRED_AT_APPLY.map((id) => [id, at]));
   return applicationInputSchema.parse({
     legalVersion: LEGAL_VERSION,
     answers: {
@@ -145,10 +148,10 @@ const licenseCheck = { source: 'board' as const, result: 'Active, WA LICSW', che
 
 describe('apply', () => {
   it('stores a draft and emails a signing link, not a key', async () => {
-    expect(await apply(deps, input({ c11: true }))).toBe('sent');
+    expect(await apply(deps, input())).toBe('sent');
     const [app] = await deps.db.select().from(betaApplications);
-    expect(app).toMatchObject({ email: 'jane@example.com', status: 'draft', updatesOptIn: true, documentId: null });
-    expect(app.consents.map((c) => c.id)).toEqual([...REQUIRED_AT_APPLY, 'C11']);
+    expect(app).toMatchObject({ email: 'jane@example.com', status: 'draft', documentId: null });
+    expect(app.consents.map((c) => c.id)).toEqual(REQUIRED_AT_APPLY);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe('jane@example.com');
     const t = signLinkIn(sent[0]);
@@ -273,7 +276,7 @@ describe('signing link', () => {
 
 describe('sign', () => {
   it('stores the stamped PDF and the evidence row with its events, then marks the application submitted', async () => {
-    const session = await readyToSign({ c11: false });
+    const session = await readyToSign();
     const [draft] = await deps.db.select().from(betaApplications);
     const r = await sign(deps, session, { name: '  jane   DOE ', consentEsignAt: new Date(clock.getTime() - 10_000).toISOString() }, meta);
     expect(r.ok).toBe(true);
@@ -320,10 +323,9 @@ describe('sign', () => {
     const times = events.map((e) => Date.parse(e.at));
     expect([...times].sort((a, b) => a - b)).toEqual(times);
 
-    // Every consent block recorded; C12 at the e-sign time, unticked C11 blank.
+    // Every consent block recorded; C12 at the e-sign time.
     const blocks = new Map(doc.blocks.map((b) => [b.id, b.tickedAt]));
     expect(blocks.get('C12')).toBe(events[3]!.at);
-    expect(blocks.get('C11')).toBe('');
     expect(blocks.get('B1')).toBe(blocks.get('B0'));
 
     // Emails: received to the applicant, every answer to the reviewer, no attachments, no key.
@@ -333,7 +335,8 @@ describe('sign', () => {
     expect(review.subject).not.toMatch(/jane/i);
     expect(review.text).toContain('Doe Therapy');
     expect(review.text).toContain(app.id);
-    for (const m of sent) expect(Object.keys(m).sort()).toEqual(['html', 'subject', 'text', 'to']);
+    for (const m of sent) expect(Object.keys(m).filter((k) => k !== 'secret').sort()).toEqual(['html', 'subject', 'text', 'to']);
+    expect(sent.every((m) => m.secret === true)).toBe(true);
     expect((await deps.db.select().from(emailSends)).map((e) => e.kind)).toEqual(['sign-link', 'received']);
 
     // The session now serves the signed copy, checked against its hash.
@@ -543,7 +546,7 @@ describe('terms version', () => {
 
 describe('approve', () => {
   it('records the review, issues a 6-month license and emails a key link that reveals it once', async () => {
-    const { app, documentId } = await signed({ c11: true });
+    const { app, documentId } = await signed();
     advance(DAY);
     const r = await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck, notes: 'ok' });
     expect(r.ok).toBe(true);
@@ -552,7 +555,7 @@ describe('approve', () => {
     expect(r.review).toMatchObject({ decision: 'approved', documentId, applicationId: app.id, lid: r.lid, reviewer: 'mw' });
 
     const [license] = await deps.db.select().from(licenses);
-    expect(license).toMatchObject({ lid: r.lid, email: 'jane@example.com', updatesOptIn: true });
+    expect(license).toMatchObject({ lid: r.lid, email: 'jane@example.com' });
     expect(license.expiresAt).toEqual(addMonths(clock, BETA_LICENSE_MONTHS));
     const [after] = await deps.db.select().from(betaApplications);
     expect(after).toMatchObject({ status: 'approved', lid: r.lid });
@@ -632,13 +635,14 @@ describe('decline', () => {
     expect(sent).toHaveLength(before);
   });
 
-  it('says when to reapply and how to ask for deletion', async () => {
+  it('says when to reapply and what is kept', async () => {
     const { app } = await signed();
     await decline(deps, { applicationId: app.id, reviewer: 'mw' });
     const mail = lastTo('jane@example.com');
     expect(REAPPLY_AFTER_MONTHS).toBe(3);
     expect(mail.text).toContain('You can apply again from February 2, 2027.');
-    expect(mail.text).toContain('email support@astrealabs.com');
+    expect(mail.text).toContain('keep your signed application and our decision for six years');
+    expect(mail.text).not.toMatch(/delete/i);
     expect(mail.html).toContain('mailto:support@astrealabs.com');
   });
 
@@ -738,6 +742,27 @@ describe('cleanupDrafts', () => {
     advance(8 * DAY);
     expect(await resume(deps, 'jane@example.com')).toBe('sent');
     expect(await cleanupDrafts(deps)).toEqual({ deleted: 0 });
+  });
+});
+
+describe('cleanupEmailLogs', () => {
+  it('deletes send and outbox rows older than the retention period, whatever their status', async () => {
+    const old = new Date(clock.getTime() - (EMAIL_LOG_RETENTION_DAYS + 1) * DAY);
+    const recent = new Date(clock.getTime() - (EMAIL_LOG_RETENTION_DAYS - 1) * DAY);
+    await deps.db.insert(emailSends).values([
+      { email: 'old@example.com', kind: 'sign-link', sentAt: old },
+      { email: 'new@example.com', kind: 'sign-link', sentAt: recent },
+    ]);
+    const row = (to: string, status: 'sent' | 'failed' | 'dismissed', createdAt: Date) => ({ to, subject: 's', status, createdAt, lastAttemptAt: createdAt });
+    await deps.db.insert(emailOutbox).values([
+      row('old-sent@example.com', 'sent', old),
+      row('old-dismissed@example.com', 'dismissed', old),
+      row('old-failed@example.com', 'failed', old),
+      row('new-sent@example.com', 'sent', recent),
+    ]);
+    expect(await cleanupEmailLogs(deps)).toEqual({ sends: 1, outbox: 3 });
+    expect((await deps.db.select().from(emailSends)).map((r) => r.email)).toEqual(['new@example.com']);
+    expect((await deps.db.select().from(emailOutbox)).map((r) => r.to).sort()).toEqual(['new-sent@example.com']);
   });
 });
 

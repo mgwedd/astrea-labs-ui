@@ -7,18 +7,18 @@
 //
 // Client-safe: no node imports.
 
-import { allBlocks, defineAgreement, optionalCheckboxIds, requiredCheckboxIds, type Block } from "../agreements/define";
+import { allBlocks, defineAgreement, requiredCheckboxIds, type Block } from "../agreements/define";
 
 export type { Block };
 
 export const DOC_TYPE = "beta-access";
-export const DOC_VERSION = "2026-10-27.2"; // one version for every block in this document
+export const DOC_VERSION = "2026-10-27.3"; // one version for every block in this document
 export const NO_CLIENT_INFO = "Don't include any client or patient information.";
 
 
 export const HANDLING_INTRO: Block = {
   id: "H0",
-  text: "Aletheia is built so that patient information stays on your Mac and under your control. That supports the HIPAA technical safeguards. It doesn't replace your practice's policies, risk analysis or consent process. Here's what the app does, and what stays your job.",
+  text: "Aletheia is built so that patient information stays on your Mac and under your control. It is designed to support HIPAA safeguards, but it is not HIPAA certified, and using it doesn't by itself satisfy HIPAA. It doesn't replace your practice's policies, risk analysis or consent process. Here's what the app does, and what stays your job.",
 };
 
 export const HANDLING: Block[] = [
@@ -83,7 +83,7 @@ export const DISCLOSURES: Block[] = [
   {
     id: "B3",
     title: "We are not your business associate.",
-    text: "Because we never create, receive, maintain or transmit your patients' information, Astrea Labs LLC is not a HIPAA business associate and will not sign a BAA. You remain the covered entity (or work for one) and are responsible for HIPAA compliance.",
+    text: "Because we never create, receive, maintain or transmit your patients' information, Astrea Labs LLC is not a HIPAA business associate and will not sign a BAA. If HIPAA applies to you or your practice, you remain responsible for meeting it.",
   },
   {
     id: "B4",
@@ -103,12 +103,12 @@ export const DISCLOSURES: Block[] = [
   {
     id: "B7",
     title: "Your license key.",
-    text: "Your key is personal and works only for you. It lasts six months from the date it's issued, and we email you about 30 days before it ends so you can renew. After it expires, recording and AI keep working for a 14-day grace period, then pause. We may revoke a key if these terms are broken; the app picks up revocations when it checks for updates, and a revoked key pauses new recordings and AI at once. **Your records stay yours.** Without a valid key, and with no time limit, you can still open, read, search, export and delete everything you've recorded. Settings → Backups → Export All Records saves all of it to a folder you choose; it warns you if that folder syncs to a cloud service or sits on an unencrypted disk.",
+    text: "Your key is personal and works only for you. It lasts six months from the date it's issued, and we email you about 30 days before it ends so you can renew. After it expires, recording and AI keep working for a 14-day grace period, then pause. We may revoke a key if these terms are broken; the app picks up revocations when it checks for updates (if you turn update checks off, it won't), and a revoked key pauses new recordings and AI at once. **Your records stay yours.** Without a valid key, and with no time limit, you can still open, read, search, export and delete everything you've recorded. Settings → Backups → Export All Records saves all of it to a folder you choose; it warns you if that folder syncs to a cloud service or sits on an unencrypted disk.",
   },
   {
     id: "B8",
     title: "Support without patient information.",
-    text: "Never send us recordings, transcripts, notes, database files, screenshots that show client details, or unredacted logs. Use the app's redacted Doctor report. If we receive patient information by mistake, we will delete it as far as we're able and tell you.",
+    text: "Never send us recordings, transcripts, notes, database files, screenshots that show client details, or unredacted logs. Use the app's redacted Doctor report. If we receive patient information by mistake, we will delete it where we're able and tell you. Text you type into an application is part of the signed record and can't be deleted, so keep it out of the free-text boxes.",
   },
 ];
 
@@ -130,11 +130,11 @@ const OTHER_ATTESTATIONS: Block[] = [
   },
   {
     id: "C3",
-    text: "**HIPAA is my responsibility.** I (or the practice I work for) am the covered entity. I'll include Aletheia in my HIPAA risk analysis and follow my practice's privacy and security policies. I understand Astrea Labs LLC is not my business associate.",
+    text: "**HIPAA is my responsibility.** Where HIPAA applies to me or my practice, I'll include Aletheia in my risk analysis and follow my practice's privacy and security policies. I understand Astrea Labs LLC is not my business associate.",
   },
   {
     id: "C4",
-    text: "**Recording consent.** Before every recording I'll obtain each participant's informed consent to be recorded and to have the recording processed by AI on my Mac, as required by the law of every place where any participant is located, including all-party-consent states such as California, Washington, Florida, Illinois and Pennsylvania. I'll record that consent in Aletheia (who consented, how and when) whenever it asks, keep any written consent in my own records, and I won't record anyone who declines.",
+    text: "**Recording consent.** Before every recording I'll obtain each participant's informed consent to be recorded and to have the recording processed by AI on my Mac, as required by the law of every place where any participant is located, including all-party-consent states such as California, Washington, Florida, Illinois and Pennsylvania. I'll record that consent in Aletheia (who consented, how and when) whenever it asks, keep any written consent in my own records, and I won't record anyone who declines. Aletheia asks for consent once per patient by default, so when the participants change I'll switch it to ask every session, or record consent again.",
   },
   {
     id: "C5",
@@ -160,7 +160,6 @@ const OTHER_ATTESTATIONS: Block[] = [
     id: "C10",
     text: "**My key is mine.** I won't share, transfer or publish my license key, and I won't use Aletheia outside the license terms. Astrea Labs LLC may revoke my key if I break these terms.",
   },
-  { id: "C11", text: "Email me when new versions ship.", optional: true },
   {
     id: "C12",
     text: "**Electronic signature.** I agree to sign this application electronically, and that my electronic signature is as binding as a handwritten one.",
@@ -220,7 +219,6 @@ export const documentBlocks = (legalVersion: string): Block[] => allBlocks(betaA
 // names a placeholder version in C1, so use it for ids and paths, never for text.
 export const BETA_FRAME = betaAgreement("0000-00-00");
 export const REQUIRED_AT_APPLY: string[] = requiredCheckboxIds(BETA_FRAME);
-export const OPTIONAL_AT_APPLY: string[] = optionalCheckboxIds(BETA_FRAME);
 export const SIGNING_CONSENT = BETA_FRAME.signingConsent;
 export const SIGNING_CONSENT_ID = SIGNING_CONSENT.id;
 

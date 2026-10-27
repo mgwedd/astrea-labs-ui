@@ -22,7 +22,7 @@ export function accountInviteEmail(input: { url: string; expiresAt: Date }): Omi
     '— Astrea Labs',
   ].join('\n');
   const html = `<p>You asked to create an Astrea Labs account. Open the link below to finish. You sign in with a one-time code we email you; there is no password.</p><p><a href="${escapeHtml(input.url)}">${escapeHtml(input.url)}</a></p><p>The link works once and expires on ${escapeHtml(expires)}. Don't forward this email.</p><p>Didn't ask for this? Ignore this email and no account is created.</p><p>— Astrea Labs</p>`;
-  return { subject: 'Create your Astrea Labs account', text, html };
+  return { subject: 'Create your Astrea Labs account', text, html, secret: true };
 }
 
 export type OfferResult = 'sent' | 'rate_limited' | 'not_eligible';
