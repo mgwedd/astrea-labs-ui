@@ -97,26 +97,32 @@ export function fieldId(path: string) {
 
 const STORAGE_KEY = 'aletheia-beta-apply-v1';
 
-// Only the answers and the step are kept, for this tab only. Consent tick
-// times are never stored: a restored draft starts with every box unticked.
-export function loadDraft(): { draft: Draft; step: number } | null {
+// The answers, the step and the consent tick times are kept, for this tab only,
+// so a reload doesn't undo the attestations. Ticks only carry over while the
+// document version they were given against is still current.
+export type Saved = { draft: Draft; step: number; consents: Record<string, string> };
+
+export function loadDraft(legalVersion: string): Saved | null {
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { draft?: Partial<Draft>; step?: number };
+    const parsed = JSON.parse(raw) as { draft?: Partial<Draft>; step?: number; consents?: unknown; legalVersion?: string };
     if (!parsed.draft) return null;
     const draft = { ...emptyDraft, ...parsed.draft };
     if (!Array.isArray(draft.licenses) || draft.licenses.length === 0) draft.licenses = emptyDraft.licenses;
-    // Never resume past step 2: later steps need consents, which are not stored.
-    return { draft, step: Math.min(Math.max(Number(parsed.step) || 0, 0), 1) };
+    const consents: Record<string, string> = {};
+    if (parsed.legalVersion === legalVersion && parsed.consents && typeof parsed.consents === 'object') {
+      for (const [id, at] of Object.entries(parsed.consents)) if (typeof at === 'string') consents[id] = at;
+    }
+    return { draft, step: Math.min(Math.max(Number(parsed.step) || 0, 0), 3), consents };
   } catch {
     return null;
   }
 }
 
-export function saveDraft(draft: Draft, step: number) {
+export function saveDraft(draft: Draft, step: number, consents: Record<string, string>, legalVersion: string) {
   try {
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ draft, step }));
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ draft, step, consents, legalVersion }));
   } catch {
     // Storage blocked or full: the form still works, it just won't survive a refresh.
   }

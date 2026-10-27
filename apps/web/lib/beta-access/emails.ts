@@ -10,7 +10,7 @@ const longDate = (d: Date) =>
 const page = (body: string) =>
   `<!doctype html><html><body style="font-family:-apple-system,system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px">
 ${body}
-<p>— Astrea Labs</p>
+<p>— Astrea Labs LLC</p>
 </body></html>`;
 
 /** The link to confirm the address and sign. Sent on apply and on "resume signing". */
@@ -19,7 +19,7 @@ export function signLinkEmail(input: { url: string; expiresAt: Date; resume: boo
     ? 'Here is a new link to sign your Aletheia beta application. Any earlier link no longer works.'
     : 'Thanks for applying for the Aletheia beta. To confirm this is your address, open the link below. You will then review and sign your application.';
   const note = `The link works once and expires on ${longDate(input.expiresAt)}. If you didn't apply, ignore this email.`;
-  const text = [intro, '', input.url, '', note, '', '— Astrea Labs'].join('\n');
+  const text = [intro, '', input.url, '', note, '', '— Astrea Labs LLC'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p><a href="${escapeHtml(input.url)}">Review and sign my application</a></p>
 <p>${escapeHtml(note)}</p>`);
@@ -31,7 +31,7 @@ export function receivedEmail(): Omit<Mail, 'to'> {
   const intro =
     "We've received your signed application for the Aletheia beta. We review each application by hand and will email you when we've decided.";
   const note = 'Submitting an application does not guarantee a license.';
-  const text = [intro, '', note, '', '— Astrea Labs'].join('\n');
+  const text = [intro, '', note, '', '— Astrea Labs LLC'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(note)}</p>`);
   return { subject: 'We received your Aletheia beta application', text, html };
@@ -46,7 +46,7 @@ export function declineEmail(input: { reapplyAfter: Date }): Omit<Mail, 'to'> {
     "Thank you for applying for the Aletheia beta. We aren't able to offer you a place in the beta at this time.";
   const reapply = `You can apply again from ${longDate(input.reapplyAfter)}.`;
   const deletion = `To ask us to delete your application record, email ${DELETION_EMAIL}.`;
-  const text = [intro, '', reapply, '', deletion, '', '— Astrea Labs'].join('\n');
+  const text = [intro, '', reapply, '', deletion, '', '— Astrea Labs LLC'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(reapply)}</p>
 <p>To ask us to delete your application record, email <a href="mailto:${DELETION_EMAIL}">${DELETION_EMAIL}</a>.</p>`);
