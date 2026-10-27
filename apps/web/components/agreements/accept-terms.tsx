@@ -133,7 +133,7 @@ export function AcceptTerms({ definition }: { definition: AgreementDefinition })
 function problemFor(status: number, error?: string): string {
   if (status === 409 || error === 'stale_version') return 'These terms were updated while the page was open. Reload to read the new version.';
   if (status === 429) return 'Too many attempts. Try again in an hour.';
-  if (status === 403) return 'Our bot check blocked this request. Nothing was saved. Reload the page and try again.';
+  if (status === 403) return 'Our security check didn’t accept this request. Nothing was saved. Try again in a moment; if it keeps happening, try another browser or network.';
   if (status === 400) return 'Something wasn’t accepted. Nothing was saved. Reload the page and try again.';
   return 'Something went wrong. Nothing was saved. Please try again.';
 }

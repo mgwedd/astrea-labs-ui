@@ -31,6 +31,8 @@ type Submit = { kind: 'idle' } | { kind: 'sending' } | { kind: 'error'; message:
 export function ApplyForm({ legalVersion }: { legalVersion: string }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [step, setStep] = useState(0);
+  // Set when a section is opened from the review step, so finishing it goes straight back there.
+  const [editing, setEditing] = useState(false);
   // Block id -> ISO time it was ticked. Unticking removes the entry.
   const [consents, setConsents] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Errors>({});
@@ -44,17 +46,8 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
   const consentsChanged = useRef(false);
 
   useEffect(() => {
-    const saved = loadDraft();
-    if (saved) {
-      setDraft(saved.draft);
-      setStep(saved.step);
-    }
-    setRestored(true);
-  }, []);
-
-  useEffect(() => {
-    if (restored && submit.kind !== 'sent') saveDraft(draft, step);
-  }, [draft, step, restored, submit.kind]);
+    if (restored && submit.kind !== 'sent') saveDraft(draft, step, consents, legalVersion);
+  }, [draft, step, consents, restored, submit.kind, legalVersion]);
 
   const consentErrors = useCallback(
     (s: number, c: Record<string, string>): Errors => {
@@ -69,6 +62,18 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
     (s: number, d: Draft, c: Record<string, string>) => (s === 0 ? validateAnswers(d) : consentErrors(s, c)),
     [consentErrors],
   );
+
+  useEffect(() => {
+    const saved = loadDraft(legalVersion);
+    if (saved) {
+      setDraft(saved.draft);
+      setConsents(saved.consents);
+      // Resume where they were, but never past a step that's no longer complete.
+      const bad = [0, 1, 2].find((s) => Object.keys(errorsFor(s, saved.draft, saved.consents)).length > 0);
+      setStep(Math.min(saved.step, bad ?? 3));
+    }
+    setRestored(true);
+  }, [errorsFor, legalVersion]);
 
   // After a failed "Continue", keep errors live so they clear as they're fixed.
   const update = (patch: Partial<Draft>) => {
@@ -123,7 +128,19 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
       setErrors(found);
       return;
     }
+    if (editing) {
+      // Return to review, unless an earlier step is no longer complete.
+      const bad = [0, 1, 2].find((s) => Object.keys(errorsFor(s, draft, consents)).length > 0);
+      setEditing(false);
+      goTo(bad ?? STEPS.length - 1);
+      return;
+    }
     goTo(step + 1);
+  };
+
+  const editFromReview = (s: number) => {
+    setEditing(true);
+    goTo(s);
   };
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -140,11 +157,18 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
 
     setSubmit({ kind: 'sending' });
     try {
-      const res = await fetch('/api/beta/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parsed.data),
-      });
+      const send = () =>
+        fetch('/api/beta/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed.data),
+        });
+      let res = await send();
+      // The bot check sometimes rejects a real browser once. Retry once before telling them.
+      if (res.status === 403) {
+        await new Promise((r) => setTimeout(r, 1500));
+        res = await send();
+      }
       if (res.ok) {
         clearDraft();
         setSubmit({ kind: 'sent', email: parsed.data.answers.email });
@@ -157,7 +181,7 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
           res.status === 400
             ? 'Some answers weren’t accepted, or the Terms and Privacy Policy were updated. Reload the page, check each step, and try again.'
             : res.status === 403
-              ? 'Our bot check blocked this request. Reload the page and try again.'
+              ? 'Our security check didn’t accept this request. Your answers and ticks are still here, so press Submit again in a moment. If it keeps happening, try another browser or network.'
               : res.status === 429
                 ? 'Too many attempts. Please wait a few minutes and try again.'
                 : 'We couldn’t send your application just now. Nothing was sent; please try again.',
@@ -234,7 +258,7 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
           {step === 0 && <StepAbout draft={draft} errors={errors} update={update} />}
           {step === 1 && <StepHandling consents={consents} setConsent={setConsent} errors={errors} />}
           {step === 2 && <StepAttestations legalVersion={legalVersion} consents={consents} setConsent={setConsent} errors={errors} />}
-          {step === 3 && answers && <StepReview answers={answers} consents={consents} goTo={goTo} />}
+          {step === 3 && answers && <StepReview answers={answers} consents={consents} goTo={editFromReview} />}
         </CardContent>
         <CardFooter className="flex flex-col items-stretch gap-4 border-t p-4 sm:p-6">
           {errorCount > 0 && (
@@ -250,7 +274,10 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
           )}
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
             {step > 0 ? (
-              <Button type="button" variant="outline" onClick={() => goTo(step - 1)}>
+              <Button type="button" variant="outline" onClick={() => {
+                  setEditing(false);
+                  goTo(step - 1);
+                }}>
                 <ArrowLeft data-icon="inline-start" />
                 Back
               </Button>
@@ -258,7 +285,7 @@ export function ApplyForm({ legalVersion }: { legalVersion: string }) {
               <span />
             )}
             <Button type="submit" disabled={submit.kind === 'sending'}>
-              {isLast ? (submit.kind === 'sending' ? 'Submitting…' : 'Submit and confirm email') : 'Continue'}
+              {isLast ? (submit.kind === 'sending' ? 'Submitting…' : 'Submit and confirm email') : editing ? 'Back to review' : 'Continue'}
               {!isLast && <ArrowRight data-icon="inline-end" />}
             </Button>
           </div>

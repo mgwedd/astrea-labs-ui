@@ -119,7 +119,7 @@ function problemFor(status: number, error?: string): Problem {
       ),
     };
   }
-  if (status === 403) return { message: 'Our bot check blocked this request. Nothing was saved. Reload the page and try again.' };
+  if (status === 403) return { message: 'Our security check didn’t accept this request. Nothing was saved. Try again in a moment; if it keeps happening, try another browser or network.' };
   if (status === 409) return { message: 'This application is already signed. Taking you to your confirmation…' };
   if (status === 502) {
     return { message: 'We couldn’t store your signed document, so nothing was saved and your application isn’t submitted yet. Please try again.' };
