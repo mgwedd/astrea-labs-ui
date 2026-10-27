@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { Analytics } from '@vercel/analytics/next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { Toaster, TooltipProvider } from '@astrea/ui';
 import '@astrea/ui/globals.css';
+import { SiteAnalytics } from '@/components/site-analytics';
 import { ThemeProvider } from '@/components/theme-provider';
 import { site } from '@/lib/site';
 
@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Toaster />
           </TooltipProvider>
         </ThemeProvider>
-        <Analytics />
+        <SiteAnalytics />
       </body>
     </html>
   );
