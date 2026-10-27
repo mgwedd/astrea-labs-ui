@@ -96,7 +96,6 @@ describe('getOverview', () => {
     ]);
     const o = await getOverview({ db, now: () => NOW });
     expect(o.liveTestLicenses).toBe(1);
-    expect(o.maxTestLicenses).toBe(3);
   });
 
   it('builds the queue flagged first, then oldest first, with links to the detail routes', async () => {

@@ -3,8 +3,8 @@
 // Flow: apply (answers + consents) -> email a single-use signing link (7 days)
 // -> opening it (a POST) confirms the address, starts a 2h signing session and
 // builds the unsigned PDF -> the applicant views it, ticks C12, types their
-// name and signs -> the server stamps, seals and stores the signed PDF, the
-// audit JSON and the evidence row; only then is the application "submitted"
+// name and signs -> the server stamps, seals and stores the signed PDF and
+// the evidence row (with the signing events); only then is the application "submitted"
 // -> an admin approves (license + key link) or declines.
 //
 // Secrets (sign links, sessions, key links) are 32 random bytes, base64url.
@@ -40,7 +40,7 @@ import {
 import { licenses } from '../licensing/db/schema';
 import type { BlobStore } from '../agreements/signed/blob';
 import { buildUnsignedPdf, type AuditEvent, type AuditTrail } from '../agreements/signed/pdf';
-import type { Sealer } from '../agreements/signed/seal';
+import type { Seal, Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
 import { acceptAgreement, type Db as AgreementsDb } from '../agreements/service';
@@ -81,7 +81,6 @@ const errType = (err: unknown) => (err instanceof Error ? err.name : typeof err)
 
 export const draftPath = (applicationId: string, sha: string) => signed.draftPath(FRAME, applicationId, sha);
 export const signedPdfPath = (documentId: string) => signed.signedPdfPath(FRAME, documentId);
-export const auditPath = (documentId: string) => signed.auditPath(FRAME, documentId);
 const tryDelete = signed.tryDelete;
 
 /** Case-insensitive, whitespace-normalised name comparison key. */
@@ -790,8 +789,32 @@ async function loadChecked(blob: BlobStore, path: string, sha256: string) {
 }
 
 /**
- * Admin: the signed PDF or the audit JSON of one signed document, served only
- * when it still matches the SHA-256 recorded when it was signed.
+ * The audit trail as JSON, built from the evidence row: the same shape as the
+ * audit.json files stored for rows signed before events moved to Postgres.
+ */
+function auditJsonOf(doc: SignedDocument): Uint8Array {
+  const trail: Omit<AuditTrail, 'applicationId'> & { applicationId: string | null; pdfSha256: string; seal: Seal } = {
+    docType: doc.docType,
+    docVersion: doc.docVersion,
+    documentId: doc.id,
+    applicationId: doc.applicationId,
+    signerName: doc.signerName,
+    signerEmail: doc.signerEmail,
+    unsignedSha256: doc.unsignedSha256,
+    events: doc.events ?? [],
+    signerIp: doc.signerIp,
+    signerUa: doc.signerUa,
+    pdfSha256: doc.pdfSha256,
+    seal: { alg: doc.sealAlg, keyId: doc.sealKeyId, fingerprint: doc.sealFingerprint, signature: doc.seal },
+  };
+  return new TextEncoder().encode(JSON.stringify(trail, null, 2));
+}
+
+/**
+ * Admin: the signed PDF or the audit trail of one signed document. Stored files
+ * are served only when they still match the SHA-256 recorded when it was
+ * signed. Rows signed before events moved to Postgres serve their stored
+ * audit JSON; newer rows build it from the row.
  */
 export async function readSignedFile(
   deps: Pick<BetaDeps, 'db' | 'blob'>,
@@ -800,39 +823,49 @@ export async function readSignedFile(
 ): Promise<SignedFile> {
   const [doc] = await deps.db.select().from(signedDocuments).where(eq(signedDocuments.id, documentId)).limit(1);
   if (!doc) return { ok: false, reason: 'not_found' };
-  const path = kind === 'pdf' ? doc.pdfPath : doc.auditPath;
-  const sha256 = kind === 'pdf' ? doc.pdfSha256 : doc.auditSha256;
-  const r = await loadChecked(deps.blob, path, sha256);
-  if (!r.bytes) return { ok: false, reason: r.check as 'missing' | 'integrity' };
   const base = `aletheia-beta-application-${dateStamp(doc.signedAt)}-${doc.id.slice(0, 8)}`;
-  return kind === 'pdf'
-    ? { ok: true, bytes: r.bytes, filename: `${base}.pdf`, contentType: 'application/pdf' }
-    : { ok: true, bytes: r.bytes, filename: `${base}-audit.json`, contentType: 'application/json' };
+  const auditFile = (bytes: Uint8Array): SignedFile => ({ ok: true, bytes, filename: `${base}-audit.json`, contentType: 'application/json' });
+  if (kind === 'audit' && (!doc.auditPath || !doc.auditSha256)) return auditFile(auditJsonOf(doc));
+  const r =
+    kind === 'pdf'
+      ? await loadChecked(deps.blob, doc.pdfPath, doc.pdfSha256)
+      : await loadChecked(deps.blob, doc.auditPath!, doc.auditSha256!);
+  if (!r.bytes) return { ok: false, reason: r.check as 'missing' | 'integrity' };
+  return kind === 'pdf' ? { ok: true, bytes: r.bytes, filename: `${base}.pdf`, contentType: 'application/pdf' } : auditFile(r.bytes);
 }
+
+/** 'database': the events are on the row; there is no audit file to check. */
+export type AuditCheck = FileCheck | 'database';
 
 export type DocumentReviewInfo = {
   pdf: FileCheck;
-  audit: FileCheck;
-  /** From the audit JSON; empty when it can't be read or doesn't match its hash. */
+  audit: AuditCheck;
+  /** From the row, else the audit JSON; empty when neither can be read. */
   events: AuditEvent[];
   signerUa: string | null;
 };
 
+const validEvents = (events: unknown): AuditEvent[] =>
+  Array.isArray(events) ? events.filter((e) => typeof e?.type === 'string' && !Number.isNaN(Date.parse(e?.at))) : [];
+
 /**
- * Admin: checks both stored files of a signed document against their recorded hashes and reads the audit events.
- * A storage error marks a file 'unavailable' instead of throwing, so the review page still renders.
+ * Admin: checks the stored files of a signed document against their recorded
+ * hashes and reads the signing events: from the row, or from the audit JSON on
+ * rows signed before events moved to Postgres. A storage error marks a file
+ * 'unavailable' instead of throwing, so the review page still renders.
  */
 export async function checkSignedDocument(deps: Pick<BetaDeps, 'blob'>, doc: SignedDocument): Promise<DocumentReviewInfo> {
   const safe = (path: string, sha256: string) =>
     loadChecked(deps.blob, path, sha256).catch(() => ({ check: 'unavailable' as const, bytes: null }));
-  const [pdf, audit] = await Promise.all([safe(doc.pdfPath, doc.pdfSha256), safe(doc.auditPath, doc.auditSha256)]);
-  let events: AuditEvent[] = [];
-  if (audit.bytes) {
+  const hasFile = !!doc.auditPath && !!doc.auditSha256;
+  const [pdf, audit] = await Promise.all([
+    safe(doc.pdfPath, doc.pdfSha256),
+    hasFile ? safe(doc.auditPath!, doc.auditSha256!) : { check: 'database' as const, bytes: null },
+  ]);
+  let events = validEvents(doc.events);
+  if (!doc.events && audit.bytes) {
     try {
-      const parsed = JSON.parse(new TextDecoder().decode(audit.bytes)) as Partial<AuditTrail>;
-      if (Array.isArray(parsed.events)) {
-        events = parsed.events.filter((e) => typeof e?.type === 'string' && !Number.isNaN(Date.parse(e?.at)));
-      }
+      events = validEvents((JSON.parse(new TextDecoder().decode(audit.bytes)) as Partial<AuditTrail>).events);
     } catch {
       // A hash-matched file that isn't JSON leaves the events empty.
     }

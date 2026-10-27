@@ -4,7 +4,6 @@ import { emailCampaigns, type EmailCampaign } from '@/lib/email/db/schema';
 import { feedbackSubmissions } from '@/lib/feedback/db/schema';
 import { betaApplications, licenses, testLicenses } from '@/lib/licensing/db/schema';
 import type { Db } from '@/lib/licensing/service';
-import { MAX_LIVE_TEST_LICENSES } from '@/lib/licensing/test-license';
 
 // Read-only queries for the admin Overview and the sidebar badges.
 
@@ -31,7 +30,6 @@ export type Overview = {
   activeLicenses: number;
   licensesExpiringSoon: number;
   liveTestLicenses: number;
-  maxTestLicenses: number;
   queue: QueueItem[];
   lastCampaign: { subject: string; audience: string; sentAt: Date; status: EmailCampaign['status'] } | null;
 };
@@ -145,7 +143,6 @@ export async function getOverview(deps: Deps): Promise<Overview> {
     activeLicenses: active?.n ?? 0,
     licensesExpiringSoon: expiring?.n ?? 0,
     liveTestLicenses: liveTests?.n ?? 0,
-    maxTestLicenses: MAX_LIVE_TEST_LICENSES,
     queue,
     lastCampaign: campaign ?? null,
   };

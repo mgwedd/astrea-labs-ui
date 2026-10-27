@@ -68,7 +68,7 @@ The same migration also creates `feedback_submissions`, which previously had no 
 
 ## Operations
 
-- **Production migration has not been run.** Run it before deploying (see `docs/licensing.md`, Database).
+- **Run the production migration before deploying** (see `docs/licensing.md`, Database).
 - Env vars used here (names only): `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `SEAL_KMS_ISSUER_ID`, `RESEND_API_KEY`, `BETA_REVIEW_EMAIL`. Without `SEAL_KMS_ISSUER_ID`, dev and preview seal with an ephemeral key that cannot be verified later.
 - Evidence rows and PDFs are kept; no retention period is set.
 

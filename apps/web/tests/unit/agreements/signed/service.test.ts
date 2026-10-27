@@ -18,7 +18,6 @@ import { memoryBlobStore, type BlobStore } from '@/lib/agreements/signed/blob';
 import { buildUnsignedPdf } from '@/lib/agreements/signed/pdf';
 import { sealMessage, type Sealer } from '@/lib/agreements/signed/seal';
 import {
-  auditPath,
   consentsAreStale,
   draftPath,
   signAndStore,
@@ -149,7 +148,9 @@ describe('signed level, generic path', () => {
       signerName: 'Pat Signer',
       typedSignature: 'Pat Signer',
       pdfPath: signedPdfPath(NDA, r.documentId),
-      auditPath: auditPath(NDA, r.documentId),
+      auditPath: null,
+      auditSha256: null,
+      events: input.events,
       sealKeyId: 'test-key',
     });
     expect(doc.pdfPath).toBe(`test-nda/signed/${r.documentId}/document.pdf`);
@@ -165,9 +166,9 @@ describe('signed level, generic path', () => {
     expect(doc.blocks.map((b) => b.sha256)).toEqual(blockRecords(NDA).map((b) => b.sha256));
 
     const pdf = (await blob.get(doc.pdfPath))!;
-    const auditBytes = (await blob.get(doc.auditPath))!;
     expect(sha256Hex(pdf)).toBe(doc.pdfSha256);
-    expect(sha256Hex(auditBytes)).toBe(doc.auditSha256);
+    // No audit JSON in Blob: the events live on the row.
+    expect(await blob.get(`test-nda/signed/${r.documentId}/audit.json`)).toBeNull();
     const pages = async (b: Uint8Array) => (await PDFDocument.load(b, { updateMetadata: false })).getPageCount();
     expect(await pages(pdf)).toBe((await pages(input.draft)) + 1);
 
@@ -178,8 +179,6 @@ describe('signed level, generic path', () => {
       Buffer.from(doc.seal, 'base64'),
     );
     expect(sigOk).toBe(true);
-    const audit = JSON.parse(new TextDecoder().decode(auditBytes));
-    expect(audit).toMatchObject({ docType: 'test-nda', docVersion: '2026-01-01', documentId: doc.id, pdfSha256: doc.pdfSha256 });
 
     const claimed = await db.execute(sql`SELECT document_id FROM test_claims`);
     expect((claimed as unknown as { rows: { document_id: string }[] }).rows[0]!.document_id).toBe(r.documentId);
@@ -196,7 +195,7 @@ describe('signed level, generic path', () => {
 
   it('leaves nothing stored when a blob write fails', async () => {
     const input = await signInput();
-    failPut = (p) => p.endsWith('/audit.json');
+    failPut = (p) => p.endsWith('/document.pdf');
     expect(await signAndStore({ db, blob, sealer: testSealer }, input)).toEqual({ ok: false, error: 'store_failed' });
     expect(await db.select().from(signedDocuments)).toHaveLength(0);
     failPut = null;

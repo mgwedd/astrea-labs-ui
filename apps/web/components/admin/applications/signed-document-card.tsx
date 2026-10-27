@@ -13,7 +13,7 @@ import {
 } from '@astrea/ui';
 import { Details, type DetailRow as Row } from '@/components/admin/details';
 import { formatUtc } from '@/lib/admin/format';
-import type { DocumentReviewInfo, FileCheck } from '@/lib/beta-access/service';
+import type { AuditCheck, DocumentReviewInfo, FileCheck } from '@/lib/beta-access/service';
 import type { SignedDocument } from '@/lib/licensing/db/schema';
 
 const EVENT_LABELS: Record<string, string> = {
@@ -24,18 +24,22 @@ const EVENT_LABELS: Record<string, string> = {
   signed: 'Signed',
 };
 
-export const CHECK_LABELS: Record<FileCheck, string> = {
+export const CHECK_LABELS: Record<AuditCheck, string> = {
   ok: 'Matches recorded hash',
   missing: 'File missing',
   integrity: 'Does not match recorded hash',
   unavailable: "Couldn't read storage",
+  database: 'Stored in the database',
 };
+
+/** The audit trail is readable: a stored file that passed its check, or the row itself. */
+export const auditOk = (check: AuditCheck) => check === 'ok' || check === 'database';
 
 function fileHref(id: string, file: 'pdf' | 'audit', download?: boolean) {
   return `/admin/licenses/documents/${id}?file=${file}${download ? '&download=1' : ''}`;
 }
 
-export function FileLinks({ id, pdf = 'ok', audit = 'ok' }: { id: string; pdf?: FileCheck; audit?: FileCheck }) {
+export function FileLinks({ id, pdf = 'ok', audit = 'ok' }: { id: string; pdf?: FileCheck; audit?: AuditCheck }) {
   return (
     <div className="flex flex-wrap gap-2">
       {pdf === 'ok' && (
@@ -54,7 +58,7 @@ export function FileLinks({ id, pdf = 'ok', audit = 'ok' }: { id: string; pdf?: 
           </Button>
         </>
       )}
-      {audit === 'ok' && (
+      {auditOk(audit) && (
         <Button asChild size="sm" variant="outline">
           <a href={fileHref(id, 'audit', true)}>
             <DownloadIcon data-icon="inline-start" />
@@ -66,19 +70,19 @@ export function FileLinks({ id, pdf = 'ok', audit = 'ok' }: { id: string; pdf?: 
   );
 }
 
-function HashCheck({ check, sha256 }: { check: FileCheck; sha256: string }) {
+function HashCheck({ check, sha256 }: { check: AuditCheck; sha256: string | null }) {
   return (
     <span className="flex flex-col gap-1">
-      <Badge variant={check === 'ok' ? 'secondary' : 'destructive'} className="self-start">
+      <Badge variant={auditOk(check) ? 'secondary' : 'destructive'} className="self-start">
         {CHECK_LABELS[check]}
       </Badge>
-      <code className="break-all text-xs">{sha256}</code>
+      {sha256 && <code className="break-all text-xs">{sha256}</code>}
     </span>
   );
 }
 
 export function SignedDocumentCard({ doc, check }: { doc: SignedDocument; check: DocumentReviewInfo }) {
-  const failed = check.pdf !== 'ok' || check.audit !== 'ok';
+  const failed = check.pdf !== 'ok' || !auditOk(check.audit);
   return (
     <Card>
       <CardHeader>

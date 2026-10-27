@@ -168,11 +168,11 @@ export async function createTestLicenseAction(form: FormData) {
   const user = await requireAdmin();
   const parsed = TestLicenseForm.safeParse(fields(form));
   if (!parsed.success) return back('/admin/licenses', 'invalid');
-  const r = await createTestLicense(
+  await createTestLicense(
     { db: getDb(), key: getSigningKey() },
     { days: parsed.data.days as TestLicenseDays, label: parsed.data.label, by: user.email },
   );
-  return back('/admin/licenses', r.ok ? 'test_issued' : 'test_limit');
+  return back('/admin/licenses', 'test_issued');
 }
 
 /** Returns the key itself to the page; it is never put in a URL. */
