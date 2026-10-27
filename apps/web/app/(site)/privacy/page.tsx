@@ -4,7 +4,6 @@ import { site } from '@/lib/site';
 
 export const metadata: Metadata = { title: 'Privacy', description: `How ${site.legalName} handles your data.` };
 
-// TODO(legal): have this reviewed before the beta opens, and fill in retention and contact details.
 export default function PrivacyPage() {
   return (
     <div className="container max-w-2xl pb-16">

@@ -1,17 +1,19 @@
 import Link from 'next/link';
-import { CheckCircle2, Eye, Lock, MessageSquare, Pin } from 'lucide-react';
+import { CheckCircle2, ChevronUp, Eye, Lock, MessageSquare, Pin } from 'lucide-react';
 import { Badge, Button, cn } from '@astrea/ui';
 import { relativeTime } from '@/lib/forum/format';
-import { listHref, SORTS } from '@/lib/forum/list-params';
+import { listHref, SORTS, type ListFilters } from '@/lib/forum/list-params';
+import { isReportKind } from '@/lib/forum/reports';
 import type { Page, ThreadSort, ThreadSummary } from '@/lib/forum/service';
 import { AuthorName } from './author-name';
+import { KindBadge, StatusBadge } from './report-badges';
 
-export function SortTabs({ base, sort }: { base: string; sort: ThreadSort }) {
+export function SortTabs({ base, sort, sorts = SORTS, filters }: { base: string; sort: ThreadSort; sorts?: typeof SORTS; filters?: ListFilters }) {
   return (
     <nav aria-label="Sort threads" className="flex flex-wrap gap-1">
-      {SORTS.map((s) => (
+      {sorts.map((s) => (
         <Button key={s.value} asChild size="sm" variant={s.value === sort ? 'secondary' : 'ghost'}>
-          <Link href={listHref(base, s.value, 1)} aria-current={s.value === sort ? 'page' : undefined}>
+          <Link href={listHref(base, s.value, 1, filters)} aria-current={s.value === sort ? 'page' : undefined}>
             {s.label}
           </Link>
         </Button>
@@ -20,13 +22,13 @@ export function SortTabs({ base, sort }: { base: string; sort: ThreadSort }) {
   );
 }
 
-export function Pager({ base, sort, data }: { base: string; sort: ThreadSort; data: Page<unknown> }) {
+export function Pager({ base, sort, data, filters }: { base: string; sort: ThreadSort; data: Page<unknown>; filters?: ListFilters }) {
   const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
   if (pages <= 1) return null;
   return (
     <nav aria-label="Pagination" className="flex items-center justify-between gap-2 pt-4">
       <Button asChild variant="outline" size="sm" className={cn(data.page <= 1 && 'pointer-events-none opacity-50')} aria-disabled={data.page <= 1}>
-        <Link href={listHref(base, sort, data.page - 1)} tabIndex={data.page <= 1 ? -1 : undefined}>
+        <Link href={listHref(base, sort, data.page - 1, filters)} tabIndex={data.page <= 1 ? -1 : undefined}>
           Previous
         </Link>
       </Button>
@@ -34,7 +36,7 @@ export function Pager({ base, sort, data }: { base: string; sort: ThreadSort; da
         Page {data.page} of {pages}
       </span>
       <Button asChild variant="outline" size="sm" className={cn(data.page >= pages && 'pointer-events-none opacity-50')} aria-disabled={data.page >= pages}>
-        <Link href={listHref(base, sort, data.page + 1)} tabIndex={data.page >= pages ? -1 : undefined}>
+        <Link href={listHref(base, sort, data.page + 1, filters)} tabIndex={data.page >= pages ? -1 : undefined}>
           Next
         </Link>
       </Button>
@@ -60,6 +62,8 @@ export function ThreadList({ items, showCategory }: { items: ThreadSummary[]; sh
               <Link href={`/forum/t/${t.id}`} className="font-medium leading-snug hover:underline">
                 {t.title}
               </Link>
+              <KindBadge kind={t.kind} />
+              {isReportKind(t.kind) && t.status && <StatusBadge kind={t.kind} status={t.status} />}
               {t.pinned && (
                 <Badge variant="outline" className="gap-1">
                   <Pin className="size-3" aria-hidden />
@@ -98,6 +102,13 @@ export function ThreadList({ items, showCategory }: { items: ThreadSummary[]; sh
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1 text-xs text-muted-foreground">
+            {isReportKind(t.kind) && (
+              <span className={cn('inline-flex items-center gap-1', t.voted && 'font-medium text-foreground')} title={`${t.voteCount} ${t.voteCount === 1 ? 'vote' : 'votes'}${t.voted ? ', including yours' : ''}`}>
+                <ChevronUp className="size-3.5" aria-hidden />
+                <span className="tabular-nums">{t.voteCount}</span>
+                <span className="sr-only">{t.voteCount === 1 ? 'vote' : 'votes'}</span>
+              </span>
+            )}
             <span className="inline-flex items-center gap-1" title={`${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}`}>
               <MessageSquare className="size-3.5" aria-hidden />
               <span className="tabular-nums">{t.replyCount}</span>

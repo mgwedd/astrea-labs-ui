@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import * as schema from '@/lib/email/db/schema';
 import type { Db } from '@/lib/email/sends';
 
-// The email tables as migrations 0009, 0010 and 0012 leave them.
+// The email tables as migrations 0009, 0010 and 0013 leave them.
 const CREATE_TABLES = `
 create table email_campaigns (
   id uuid primary key default gen_random_uuid(),

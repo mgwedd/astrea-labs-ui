@@ -11,13 +11,16 @@ export const metadata: Metadata = { title: 'New thread · Forum', robots: { inde
 export default async function NewThreadPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const viewer = await requireForumMember('/forum/new');
   const deps = forumDeps();
-  const raw = (await searchParams).category;
+  const sp = await searchParams;
+  const raw = sp.category;
+  const k = Array.isArray(sp.kind) ? sp.kind[0] : sp.kind;
+  const initialKind = k === 'bug' || k === 'feature' ? k : 'discussion';
   const [categories, profile] = await Promise.all([listCategories(deps), getOwnProfile(deps, viewer)]);
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <h1 className="text-2xl font-semibold tracking-tight">New thread</h1>
       {profile.usernameConfirmed ? (
-        <ComposeForm categories={categories} initialCategory={Array.isArray(raw) ? raw[0] : raw} />
+        <ComposeForm categories={categories} initialCategory={Array.isArray(raw) ? raw[0] : raw} initialKind={initialKind} />
       ) : (
         <ConfirmGate username={profile.username} />
       )}
