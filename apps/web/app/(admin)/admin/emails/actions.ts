@@ -9,9 +9,10 @@ import { z } from 'zod';
 import { requireAdmin } from '@/lib/admin/gate';
 import type { NoticeKey } from '@/lib/admin/format';
 import { parseAudience } from '@/lib/email/audience';
-import { sendBroadcast, sendTestEmail } from '@/lib/email/campaigns';
-import { emailCampaigns } from '@/lib/email/db/schema';
+import { sendBatch, sendTestEmail } from '@/lib/email/campaigns';
 import { buildEmailHtml, fillPlaceholders, MAX_CAMPAIGN_HTML, sanitizeCampaignHtml } from '@/lib/email/html';
+import { sendCampaign as deliverCampaign, type Db } from '@/lib/email/sends';
+import { signUnsubscribeToken } from '@/lib/email/token';
 import { siteUrlFor } from '@/lib/licensing/server';
 import { getDb } from '@/lib/licensing/db/client';
 
@@ -44,7 +45,7 @@ export async function previewCampaign(_prev: PreviewState, form: FormData): Prom
   await requireAdmin();
   const p = z.object({ html: Html }).safeParse({ html: form.get('html') });
   if (!p.success) return { error: 'Add some HTML to preview. Scripts, forms and styles blocks are removed.' };
-  const html = fillPlaceholders(buildEmailHtml(p.data.html, siteUrlFor()), { token: 'preview', preferencesUrl: '#' });
+  const html = fillPlaceholders(buildEmailHtml(p.data.html, siteUrlFor()), 'preview');
   return { html };
 }
 
@@ -59,25 +60,25 @@ export async function sendTestCampaign(form: FormData) {
   return back(r.ok ? 'test_sent' : 'test_failed');
 }
 
-/** Sends a Resend Broadcast to the chosen audience's topic, then records it. */
+const CAMPAIGN_NOTICE = { sent: 'campaign_sent', partial: 'campaign_partial', failed: 'campaign_failed', no_recipients: 'campaign_empty' } as const;
+
+/** Sends to everyone opted in to the audience who isn't suppressed, recording each recipient. */
 export async function sendCampaign(form: FormData) {
   const admin = await requireAdmin();
   const p = parse(form);
   if (!p.success) return back('invalid');
   const { subject, html, audience } = p.data;
-  const r = await sendBroadcast({ audience, subject, html: buildEmailHtml(html, siteUrlFor()) });
-  if (!r.ok) console.error('campaign send failed', r.error);
+  const siteUrl = siteUrlFor();
+  let notice: NoticeKey;
   try {
-    await getDb().insert(emailCampaigns).values({
-      subject,
-      audience,
-      sentBy: admin.email,
-      broadcastId: r.ok ? r.data.id : null,
-      bodyHtml: sanitizeCampaignHtml(html),
-      status: r.ok ? 'sent' : 'failed',
-    });
+    const r = await deliverCampaign(
+      { db: getDb() as unknown as Db, siteUrl, sendBatch, sign: signUnsubscribeToken },
+      { audience, subject, html: buildEmailHtml(html, siteUrl), bodyHtml: sanitizeCampaignHtml(html), sentBy: admin.email },
+    );
+    notice = CAMPAIGN_NOTICE[r.status];
   } catch (e) {
-    console.error('campaign log failed', e);
+    console.error('campaign send failed', e);
+    notice = 'campaign_failed';
   }
-  return back(r.ok ? 'campaign_sent' : 'campaign_failed');
+  return back(notice);
 }

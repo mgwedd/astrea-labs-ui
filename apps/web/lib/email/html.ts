@@ -55,31 +55,34 @@ export function sanitizeCampaignHtml(html: string): string {
   });
 }
 
-/** Placeholders Resend fills in per recipient when a Broadcast goes out. */
-export const UNSUBSCRIBE_TOKEN_PLACEHOLDER = '{{{contact.unsubscribe_token}}}';
-export const RESEND_PREFERENCES_PLACEHOLDER = '{{{RESEND_UNSUBSCRIBE_URL}}}';
+/** Stands in for each recipient's signed unsubscribe token until the email is built for that address. */
+export const UNSUBSCRIBE_TOKEN_PLACEHOLDER = '%%UNSUBSCRIBE_TOKEN%%';
+
+export const unsubscribePageUrl = (siteUrl: string, token: string) => `${siteUrl}/email/unsubscribe?t=${token}`;
+export const oneClickUrl = (siteUrl: string, token: string) => `${siteUrl}/email/unsubscribe/one-click?t=${token}`;
+
+/** RFC 8058 one-click unsubscribe headers for one recipient. */
+export const unsubscribeHeaders = (siteUrl: string, token: string): Record<string, string> => ({
+  'List-Unsubscribe': `<${oneClickUrl(siteUrl, token)}>`,
+  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+});
 
 /** The footer added to every campaign at send time. Authors don't include their own. */
 export function unsubscribeFooter(siteUrl: string): string {
-  const unsubscribe = `${siteUrl}/email/unsubscribe?t=${UNSUBSCRIBE_TOKEN_PLACEHOLDER}`;
   return [
     '<hr>',
     '<p><small>You get this because you opted in on your Astrea Labs account. ',
-    `<a href="${unsubscribe}">Unsubscribe</a> · `,
-    `<a href="${RESEND_PREFERENCES_PLACEHOLDER}">Email preferences</a></small></p>`,
+    `<a href="${unsubscribePageUrl(siteUrl, UNSUBSCRIBE_TOKEN_PLACEHOLDER)}">Unsubscribe</a> · `,
+    `<a href="${siteUrl}/account">Email preferences</a></small></p>`,
   ].join('\n');
 }
 
-/**
- * The full email as sent: sanitized body plus footer. The signed link unsubscribes
- * (database and Resend); the Resend placeholder makes Resend add its List-Unsubscribe
- * headers and gives readers its per-topic preferences page.
- */
+/** The full email before it is built per recipient: sanitized body plus footer, with the token placeholder in the unsubscribe link. */
 export function buildEmailHtml(html: string, siteUrl: string): string {
   return `${sanitizeCampaignHtml(html)}\n${unsubscribeFooter(siteUrl)}`;
 }
 
-/** The same email with the placeholders filled for one address, for previews and test sends. */
-export function fillPlaceholders(html: string, values: { token: string; preferencesUrl: string }): string {
-  return html.replaceAll(UNSUBSCRIBE_TOKEN_PLACEHOLDER, values.token).replaceAll(RESEND_PREFERENCES_PLACEHOLDER, values.preferencesUrl);
+/** The email for one recipient: their signed token in the unsubscribe link. */
+export function fillPlaceholders(html: string, token: string): string {
+  return html.replaceAll(UNSUBSCRIBE_TOKEN_PLACEHOLDER, token);
 }
