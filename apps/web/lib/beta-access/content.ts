@@ -1,7 +1,5 @@
 // Aletheia beta access form: disclosure and attestation text.
 //
-// ALL TEXT IN THIS FILE IS A DRAFT FOR COUNSEL REVIEW. It is not legal advice.
-//
 // Every `text` string is SHA-256 hashed as evidence of what the applicant saw.
 // ANY CHANGE TO ANY TEXT HERE MUST BUMP `DOC_VERSION`. (C1 also names the Aletheia
 // Terms version fetched at the time; it is hashed as shown, so a new Terms version
@@ -14,7 +12,7 @@ import { allBlocks, defineAgreement, optionalCheckboxIds, requiredCheckboxIds, t
 export type { Block };
 
 export const DOC_TYPE = "beta-access";
-export const DOC_VERSION = "2026-10-25-draft.1"; // one version for every block in this document
+export const DOC_VERSION = "2026-10-26.1"; // one version for every block in this document
 export const NO_CLIENT_INFO = "Don't include any client or patient information.";
 
 
@@ -66,7 +64,6 @@ export const HANDLING: Block[] = [
   },
 ];
 
-// DRAFT wording of our own (the spec gives none); pending counsel review.
 export const B0: Block = {
   id: "B0",
   text: "I've read how Aletheia handles patient information and the disclosures B1 to B8 above.",

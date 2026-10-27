@@ -10,8 +10,11 @@ import {
   searchMentionable,
   setLocked,
   setPinned,
+  setThreadKind,
+  setThreadStatus,
   toggleBookmark,
   toggleReaction,
+  toggleVote,
   updateOwnProfile,
   type Deps,
   type Mentionable,
@@ -19,6 +22,8 @@ import {
   type NewThreadInput,
   type OwnProfile,
   type SimilarThread,
+  type StatusChangeInput,
+  type ThreadKind,
   type Viewer,
 } from './service';
 
@@ -63,6 +68,9 @@ export const submitReply = (deps: Deps, viewer: Viewer, threadId: string, input:
 export const react = (deps: Deps, viewer: Viewer, threadId: string, targetId: string, emoji: string) =>
   run(() => toggleReaction(deps, viewer, threadId, targetId, emoji));
 
+/** "Me too" on a bug report or feature request. Returns true when the vote is now set. */
+export const vote = (deps: Deps, viewer: Viewer, threadId: string) => run(() => toggleVote(deps, viewer, threadId));
+
 export const bookmark = (deps: Deps, viewer: Viewer, threadId: string) => run(() => toggleBookmark(deps, viewer, threadId));
 
 export const setSolution = (deps: Deps, viewer: Viewer, threadId: string, postId: string | null) =>
@@ -91,7 +99,13 @@ export async function mentions(deps: Deps, prefix: string): Promise<Mentionable[
   }
 }
 
-export type AdminAction = { kind: 'pin'; threadId: string; value: boolean } | { kind: 'lock'; threadId: string; value: boolean } | { kind: 'deleteThread'; threadId: string } | { kind: 'deletePost'; postId: string };
+export type AdminAction =
+  | { kind: 'pin'; threadId: string; value: boolean }
+  | { kind: 'lock'; threadId: string; value: boolean }
+  | { kind: 'status'; threadId: string; change: StatusChangeInput }
+  | { kind: 'threadKind'; threadId: string; value: ThreadKind }
+  | { kind: 'deleteThread'; threadId: string }
+  | { kind: 'deletePost'; postId: string };
 
 /** Moderation. The services throw `forbidden` for non-admins, which comes back as a message. */
 export const moderate = (deps: Deps, viewer: Viewer, action: AdminAction) =>
@@ -101,6 +115,10 @@ export const moderate = (deps: Deps, viewer: Viewer, action: AdminAction) =>
         return setPinned(deps, viewer, action.threadId, action.value);
       case 'lock':
         return setLocked(deps, viewer, action.threadId, action.value);
+      case 'status':
+        return setThreadStatus(deps, viewer, action.threadId, action.change);
+      case 'threadKind':
+        return setThreadKind(deps, viewer, action.threadId, action.value);
       case 'deleteThread':
         return deleteThread(deps, viewer, action.threadId);
       case 'deletePost':

@@ -28,6 +28,13 @@ export async function toggleReactionAction(threadId: string, targetId: string, e
   return cmd.react(forumDeps(), viewer, threadId, targetId, emoji);
 }
 
+export async function toggleVoteAction(threadId: string) {
+  const viewer = await requireForumMember(`/forum/t/${threadId}`);
+  const r = await cmd.vote(forumDeps(), viewer, threadId);
+  if (r.ok) revalidatePath('/forum', 'layout');
+  return r;
+}
+
 export async function toggleBookmarkAction(threadId: string) {
   const viewer = await requireForumMember(`/forum/t/${threadId}`);
   const r = await cmd.bookmark(forumDeps(), viewer, threadId);

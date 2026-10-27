@@ -54,7 +54,7 @@ export default async function AdminHome() {
     {
       href: '/admin/licenses',
       label: 'Test licenses live',
-      value: `${o.liveTestLicenses}/${o.maxTestLicenses}`,
+      value: o.liveTestLicenses,
     },
   ];
 

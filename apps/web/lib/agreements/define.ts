@@ -67,7 +67,6 @@ export function defineAgreement<const D extends AgreementDefinition>(def: D): D 
   if (def.document && !def.checkboxes.some((b) => b.id === def.document!.termsAckId)) {
     throw new Error(`${def.id}: termsAckId must be a checkbox`);
   }
-  // [COUNSEL TO CONFIRM] whether a simple accept ever needs e-records consent.
   if (def.level === 'accept' && (def.signingConsent || def.document)) {
     throw new Error(`${def.id}: a simple accept has no signing consent or document`);
   }

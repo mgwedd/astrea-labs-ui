@@ -20,7 +20,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   Popover,
   PopoverContent,
@@ -36,6 +41,9 @@ import { AuthorName } from './author-name';
 import { ConfirmGate } from './confirm-gate';
 import { EMPTY_VALUE, ForumEditor, type EditorValue } from './editor';
 import { ForumBody } from './forum-body';
+import { KindBadge, StatusBadge } from './report-badges';
+import { StatusDialog, StatusTimeline, VoteButton, type ReportVM } from './report-panel';
+import { KIND_LABEL, THREAD_KINDS, type ThreadKind } from '@/lib/forum/reports';
 
 export type PostVM = {
   id: string;
@@ -72,6 +80,9 @@ export type ThreadVM = {
   replyBlocked: 'locked' | 'unconfirmed' | null;
   username: string;
   emoji: string[];
+  kind: ThreadKind;
+  /** Status, votes and history for a bug report or feature request. Null for discussions. */
+  report: ReportVM | null;
 };
 
 /** Run a server action, toast a failure, refresh the server data on success. */
@@ -300,6 +311,7 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
   const [bookmarked, setBookmarked] = useState(thread.bookmarked);
   const [quote, setQuote] = useState<PostVM | null>(null);
   const [confirmThread, setConfirmThread] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
   const canMarkSolution = thread.isAdmin || thread.op.author.mine;
 
   const quoteIt = (p: PostVM) => {
@@ -321,6 +333,8 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
         </nav>
         <h1 className="text-2xl font-semibold leading-tight tracking-tight">{thread.title}</h1>
         <div className="flex flex-wrap items-center gap-2">
+          <KindBadge kind={thread.kind} />
+          {thread.report && <StatusBadge kind={thread.report.kind} status={thread.report.status} />}
           {thread.pinned && (
             <Badge variant="outline" className="gap-1">
               <Pin className="size-3" aria-hidden />
@@ -352,6 +366,7 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
             </span>
           )}
           <div className="ml-auto flex items-center gap-1">
+            {thread.report && <VoteButton key={`${thread.report.voteCount}:${thread.report.voted}`} threadId={thread.id} report={thread.report} />}
             <Button
               type="button"
               size="sm"
@@ -382,6 +397,23 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {thread.report && <DropdownMenuItem onSelect={() => setStatusOpen(true)}>Change status…</DropdownMenuItem>}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>Change type</DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuRadioGroup
+                        value={thread.kind}
+                        onValueChange={(v) => v !== thread.kind && act(() => moderateAction({ kind: 'threadKind', threadId: thread.id, value: v as ThreadKind }))}
+                      >
+                        {THREAD_KINDS.map((k) => (
+                          <DropdownMenuRadioItem key={k} value={k}>
+                            {KIND_LABEL[k]}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => act(() => moderateAction({ kind: 'pin', threadId: thread.id, value: !thread.pinned }))}>
                     {thread.pinned ? 'Unpin' : 'Pin to top'}
                   </DropdownMenuItem>
@@ -405,6 +437,8 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
         <Reactions threadId={thread.id} targetId={thread.id} reactions={thread.op.reactions} emoji={thread.emoji} />
       </article>
 
+      {thread.report && <StatusTimeline report={thread.report} />}
+
       <section aria-label="Replies" className="flex flex-col gap-4">
         <h2 className="text-base font-semibold">
           {thread.posts.length} {thread.posts.length === 1 ? 'reply' : 'replies'}
@@ -415,6 +449,8 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
       </section>
 
       <ReplyComposer thread={thread} quote={quote} onClearQuote={() => setQuote(null)} />
+
+      {thread.isAdmin && thread.report && <StatusDialog key={thread.report.status} threadId={thread.id} report={thread.report} open={statusOpen} onOpenChange={setStatusOpen} />}
 
       <ConfirmDelete
         open={confirmThread}

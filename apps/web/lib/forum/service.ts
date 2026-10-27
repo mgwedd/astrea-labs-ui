@@ -13,8 +13,10 @@ import {
   forumPosts,
   forumProfiles,
   forumReactions,
+  forumStatusEvents,
   forumThreads,
   forumThreadViews,
+  forumVotes,
   type DisplayMode,
   type ForumGroup,
   type ForumPost,
@@ -24,6 +26,7 @@ import {
 import { licenses } from '@/lib/licensing/db/schema';
 import { extractMentionNames, MAX_BODY_CHARS, markdownToHtml, plainText, sanitizeBody, wrapMentions } from './content';
 import { isValidUsername, randomHandle, usernameFromEmail } from './names';
+import { ACTIVE_STATUSES, REPORT_STATUSES, THREAD_KINDS, isReportKind, type ReportStatus, type ThreadKind } from './reports';
 
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema & Record<string, unknown>>;
 
@@ -335,6 +338,7 @@ const TagList = z
   .transform((t) => [...new Set(t)]);
 
 const NewThread = z.object({
+  kind: z.enum(THREAD_KINDS).default('discussion'),
   categorySlug: z.string().min(1),
   title: z.string().trim().min(3, 'Title is too short').max(140, 'Title is too long'),
   tags: TagList,
@@ -363,6 +367,13 @@ export type ThreadSummary = {
   locked: boolean;
   answered: boolean;
   replyCount: number;
+  kind: ThreadKind;
+  /** Bug reports and feature requests only; null for discussions. */
+  status: ReportStatus | null;
+  /** "Me too" votes on a report. 0 for discussions. */
+  voteCount: number;
+  /** The viewer has voted on this report. */
+  voted: boolean;
   createdAt: Date;
   lastActivityAt: Date;
   /** First 200 characters of the opening post as plain text. */
@@ -374,12 +385,17 @@ export type ThreadSummary = {
   views?: number;
 };
 
-export type ThreadSort = 'latest' | 'new' | 'top' | 'unanswered';
+export type ThreadSort = 'latest' | 'new' | 'top' | 'unanswered' | 'votes';
+/** `active` = open, acknowledged, planned or in progress; `closed` = done, declined or duplicate. */
+export type StatusFilter = 'active' | 'closed';
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 const ListOptions = z.object({
   categorySlug: z.string().optional(),
-  sort: z.enum(['latest', 'new', 'top', 'unanswered']).default('latest'),
+  /** One kind, or `report` for bugs and features together. */
+  kind: z.enum([...THREAD_KINDS, 'report']).optional(),
+  status: z.enum(['active', 'closed']).optional(),
+  sort: z.enum(['latest', 'new', 'top', 'unanswered', 'votes']).default('latest'),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(50).default(20),
 });
@@ -398,14 +414,17 @@ async function summaries(
   rows: { thread: ForumThread; categorySlug: string; categoryName: string; categoryGroup: ForumGroup }[],
 ): Promise<ThreadSummary[]> {
   const ids = rows.map((r) => r.thread.id);
-  const [emails, marks, views, seen] = await Promise.all([
+  const reportIds = rows.filter((r) => isReportKind(r.thread.kind)).map((r) => r.thread.id);
+  const [emails, marks, views, seen, votes] = await Promise.all([
     emailsFor(deps, viewer, rows.map((r) => r.thread.authorSub)),
     ids.length ? deps.db.select({ id: forumBookmarks.threadId }).from(forumBookmarks).where(and(eq(forumBookmarks.auth0Sub, viewer.sub), inArray(forumBookmarks.threadId, ids))) : [],
     viewer.isAdmin && ids.length ? viewCountsFor(deps, ids) : new Map<string, number>(),
     ids.length
       ? deps.db.select({ id: forumThreadViews.threadId, at: forumThreadViews.lastViewedAt }).from(forumThreadViews).where(and(eq(forumThreadViews.auth0Sub, viewer.sub), inArray(forumThreadViews.threadId, ids)))
       : [],
+    reportIds.length ? deps.db.select({ id: forumVotes.threadId }).from(forumVotes).where(and(eq(forumVotes.auth0Sub, viewer.sub), inArray(forumVotes.threadId, reportIds))) : [],
   ]);
+  const voted = new Set(votes.map((v) => v.id));
   const marked = new Set(marks.map((m) => m.id));
   const lastSeen = new Map(seen.map((v) => [v.id, v.at]));
   return rows.map(({ thread: t, categorySlug, categoryName, categoryGroup }) => ({
@@ -418,6 +437,10 @@ async function summaries(
     locked: t.locked,
     answered: t.solutionPostId !== null,
     replyCount: t.replyCount,
+    kind: t.kind,
+    status: isReportKind(t.kind) ? (t.status ?? 'open') : null,
+    voteCount: isReportKind(t.kind) ? t.voteCount : 0,
+    voted: voted.has(t.id),
     createdAt: t.createdAt,
     lastActivityAt: t.lastActivityAt,
     excerpt: plainText(t.bodyHtml).slice(0, 200),
@@ -429,17 +452,24 @@ async function summaries(
 
 /**
  * Threads, newest activity first by default. Pinned threads come first in `latest`.
- * `top` orders by replies, `unanswered` lists threads with no replies. Omit `categorySlug` for all boards.
+ * `top` orders by replies, `votes` by "me too" votes, `unanswered` lists threads with no replies.
+ * Omit `categorySlug` for all boards. `kind` and `status` narrow to bug reports and feature requests.
  */
 export async function listThreads(deps: Deps, viewer: Viewer, options: ListThreadsOptions = {}): Promise<Page<ThreadSummary>> {
   const o = parse(ListOptions, options);
   const where = [] as ReturnType<typeof eq>[];
   if (o.categorySlug) where.push(eq(forumCategories.slug, o.categorySlug));
   if (o.sort === 'unanswered') where.push(eq(forumThreads.replyCount, 0));
+  if (o.kind === 'report') where.push(inArray(forumThreads.kind, ['bug', 'feature']));
+  else if (o.kind) where.push(eq(forumThreads.kind, o.kind));
+  if (o.status === 'active') where.push(inArray(forumThreads.status, [...ACTIVE_STATUSES]));
+  if (o.status === 'closed') where.push(inArray(forumThreads.status, REPORT_STATUSES.filter((st) => !ACTIVE_STATUSES.includes(st))));
   const cond = where.length ? and(...where) : undefined;
   const order =
     o.sort === 'top'
       ? [desc(forumThreads.replyCount), desc(forumThreads.lastActivityAt)]
+      : o.sort === 'votes'
+        ? [desc(forumThreads.voteCount), desc(forumThreads.lastActivityAt)]
       : o.sort === 'new' || o.sort === 'unanswered'
         ? [desc(forumThreads.createdAt)]
         : [desc(forumThreads.pinned), desc(forumThreads.lastActivityAt)];
@@ -482,7 +512,13 @@ export type ThreadDetail = Omit<ThreadSummary, 'excerpt'> & {
   viewerLastViewedAt: Date | null;
   /** Admin only: distinct viewers. Absent for everyone else. */
   viewers?: number;
+  /** Status changes on a report, oldest first. Empty for discussions. */
+  statusEvents: StatusEvent[];
+  /** The report this one duplicates, when its status is `duplicate`. */
+  duplicateOf: { id: string; title: string } | null;
 };
+
+export type StatusEvent = { id: string; from: ReportStatus | null; to: ReportStatus; actorName: string; note: string | null; createdAt: Date };
 
 export const REACTION_EMOJI = ['👍', '👀', '🙏', '❤️', '😄'] as const;
 
@@ -496,10 +532,14 @@ export async function getThread(deps: Deps, viewer: Viewer, threadId: string): P
     .where(eq(forumThreads.id, threadId))
     .limit(1);
   if (!row) return null;
-  const [posts, reacts, [mineView]] = await Promise.all([
+  const [posts, reacts, [mineView], events, [dup]] = await Promise.all([
     deps.db.select().from(forumPosts).where(eq(forumPosts.threadId, threadId)).orderBy(asc(forumPosts.createdAt), asc(forumPosts.id)),
     deps.db.select().from(forumReactions).where(eq(forumReactions.threadId, threadId)),
     deps.db.select({ at: forumThreadViews.lastViewedAt }).from(forumThreadViews).where(and(eq(forumThreadViews.threadId, threadId), eq(forumThreadViews.auth0Sub, viewer.sub))).limit(1),
+    deps.db.select().from(forumStatusEvents).where(eq(forumStatusEvents.threadId, threadId)).orderBy(asc(forumStatusEvents.createdAt), asc(forumStatusEvents.id)),
+    row.thread.duplicateOfId
+      ? deps.db.select({ id: forumThreads.id, title: forumThreads.title }).from(forumThreads).where(eq(forumThreads.id, row.thread.duplicateOfId)).limit(1)
+      : [],
   ]);
   const [summary] = await summaries(deps, viewer, [row]);
   const emails = await emailsFor(deps, viewer, posts.map((p) => p.authorSub));
@@ -521,6 +561,8 @@ export async function getThread(deps: Deps, viewer: Viewer, threadId: string): P
     bodyFormat: row.thread.bodyFormat,
     reactions: reactionsFor(row.thread.id),
     viewerLastViewedAt: mineView?.at ?? null,
+    statusEvents: events.map((e) => ({ id: e.id, from: e.fromStatus, to: e.toStatus, actorName: e.actorName, note: e.note, createdAt: e.createdAt })),
+    duplicateOf: row.thread.status === 'duplicate' && dup ? dup : null,
     posts: posts.map((p: ForumPost) => ({
       id: p.id,
       author: authorOf(p, emails, viewer),
@@ -540,7 +582,8 @@ export async function getThread(deps: Deps, viewer: Viewer, threadId: string): P
 }
 
 /**
- * Start a thread. Validates (title 3 to 140 chars, up to 3 tags, non-empty body), sanitizes the body,
+ * Start a thread: a discussion, a bug report or a feature request (`kind`). Reports start `open`.
+ * Validates (title 3 to 140 chars, up to 3 tags, non-empty body), sanitizes the body,
  * snapshots how the author appears, and records @mentions of members. Returns the new thread id.
  */
 export async function createThread(deps: Deps, viewer: Viewer, input: NewThreadInput): Promise<{ id: string }> {
@@ -560,6 +603,8 @@ export async function createThread(deps: Deps, viewer: Viewer, input: NewThreadI
       bodyFormat: prepared.format,
       bodySource: prepared.source,
       tags: v.tags,
+      kind: v.kind,
+      status: isReportKind(v.kind) ? 'open' : null,
       createdAt: now,
       updatedAt: now,
       lastActivityAt: now,
@@ -661,6 +706,31 @@ export async function listBookmarks(deps: Deps, viewer: Viewer, options: { page?
   return { items: await summaries(deps, viewer, rows), total: n, page, pageSize };
 }
 
+// ---------------------------------------------------------------- votes
+
+/**
+ * Add or remove the viewer's "me too" vote on a bug report or feature request. Returns true when now
+ * set. The author's own report already counts them, so they cannot vote on it. Duplicates take no
+ * votes: vote on the original instead.
+ */
+export async function toggleVote(deps: Deps, viewer: Viewer, threadId: string): Promise<boolean> {
+  if (!isUuid(threadId)) throw new ForumError('not_found', 'No such thread');
+  const [t] = await deps.db.select({ kind: forumThreads.kind, status: forumThreads.status, authorSub: forumThreads.authorSub }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
+  if (!t) throw new ForumError('not_found', 'No such thread');
+  if (!isReportKind(t.kind)) throw new ForumError('invalid', 'Only bug reports and feature requests take votes');
+  if (t.authorSub === viewer.sub) throw new ForumError('forbidden', 'You opened this one, so it already counts you');
+  const key = and(eq(forumVotes.threadId, threadId), eq(forumVotes.auth0Sub, viewer.sub));
+  const removed = await deps.db.delete(forumVotes).where(key).returning({ id: forumVotes.threadId });
+  if (removed.length) {
+    await deps.db.update(forumThreads).set({ voteCount: sql`greatest(${forumThreads.voteCount} - 1, 0)` }).where(eq(forumThreads.id, threadId));
+    return false;
+  }
+  if (t.status === 'duplicate') throw new ForumError('invalid', 'This is a duplicate. Vote on the original report.');
+  const added = await deps.db.insert(forumVotes).values({ threadId, auth0Sub: viewer.sub, createdAt: nowOf(deps) }).onConflictDoNothing().returning({ id: forumVotes.threadId });
+  if (added.length) await deps.db.update(forumThreads).set({ voteCount: sql`${forumThreads.voteCount} + 1` }).where(eq(forumThreads.id, threadId));
+  return true;
+}
+
 // ---------------------------------------------------------------- views (admin-only)
 
 /**
@@ -702,7 +772,16 @@ export async function getViewCounts(deps: Deps, viewer: Viewer, threadIds: strin
 
 const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'how', 'why', 'what', 'when', 'can', 'does', 'not', 'are', 'but', 'you', 'this', 'that', 'from', 'have', 'has', 'into', 'about', 'any', 'get', 'out', 'use']);
 
-export type SimilarThread = { id: string; title: string; categoryName: string; categorySlug: string; replyCount: number; answered: boolean };
+export type SimilarThread = {
+  id: string;
+  title: string;
+  categoryName: string;
+  categorySlug: string;
+  replyCount: number;
+  answered: boolean;
+  kind: ThreadKind;
+  status: ReportStatus | null;
+};
 
 /**
  * Existing threads whose titles share words with `title`, best match first. Plain ILIKE on up to 6
@@ -723,6 +802,8 @@ export async function findSimilarThreads(deps: Deps, title: string, options: { l
       categorySlug: forumCategories.slug,
       replyCount: forumThreads.replyCount,
       solution: forumThreads.solutionPostId,
+      kind: forumThreads.kind,
+      status: forumThreads.status,
     })
     .from(forumThreads)
     .innerJoin(forumCategories, eq(forumCategories.id, forumThreads.categoryId))
@@ -750,6 +831,60 @@ export const setPinned = (deps: Deps, viewer: Viewer, threadId: string, pinned: 
 /** Admin only: lock or unlock a thread. Members cannot reply to a locked thread. */
 export const setLocked = (deps: Deps, viewer: Viewer, threadId: string, locked: boolean) => updateThreadFlag(deps, viewer, threadId, { locked });
 
+const StatusChange = z.object({
+  status: z.enum(REPORT_STATUSES),
+  note: z.string().trim().max(500, 'Keep the note under 500 characters').optional(),
+  duplicateOfId: z.string().uuid().optional(),
+});
+export type StatusChangeInput = z.input<typeof StatusChange>;
+
+/**
+ * Admin only: move a bug report or feature request to a new status, with an optional note shown on
+ * its timeline. `duplicate` needs `duplicateOfId`, another report. Counts as activity on the thread.
+ */
+export async function setThreadStatus(deps: Deps, viewer: Viewer, threadId: string, input: StatusChangeInput): Promise<void> {
+  requireAdmin(viewer);
+  const v = parse(StatusChange, input);
+  if (!isUuid(threadId)) throw new ForumError('not_found', 'No such thread');
+  const [t] = await deps.db
+    .select({ kind: forumThreads.kind, status: forumThreads.status, duplicateOfId: forumThreads.duplicateOfId })
+    .from(forumThreads)
+    .where(eq(forumThreads.id, threadId))
+    .limit(1);
+  if (!t) throw new ForumError('not_found', 'No such thread');
+  if (!isReportKind(t.kind)) throw new ForumError('invalid', 'Only bug reports and feature requests have a status');
+  let duplicateOfId: string | null = null;
+  if (v.status === 'duplicate') {
+    if (!v.duplicateOfId) throw new ForumError('invalid', 'Choose the report this duplicates');
+    if (v.duplicateOfId === threadId) throw new ForumError('invalid', 'A report cannot duplicate itself');
+    const [orig] = await deps.db.select({ kind: forumThreads.kind, status: forumThreads.status }).from(forumThreads).where(eq(forumThreads.id, v.duplicateOfId)).limit(1);
+    if (!orig || !isReportKind(orig.kind)) throw new ForumError('not_found', 'No such report to point to');
+    // Point at the original, never at another duplicate, so there are no chains or loops.
+    if (orig.status === 'duplicate') throw new ForumError('invalid', 'That report is itself a duplicate. Link to its original');
+    duplicateOfId = v.duplicateOfId;
+  }
+  const from = t.status ?? 'open';
+  if (from === v.status && !v.note && (t.duplicateOfId ?? null) === duplicateOfId) return;
+  const actor = await authorSnapshot(deps, viewer);
+  const now = nowOf(deps);
+  await deps.db.update(forumThreads).set({ status: v.status, duplicateOfId, lastActivityAt: now, updatedAt: now }).where(eq(forumThreads.id, threadId));
+  await deps.db.insert(forumStatusEvents).values({ threadId, fromStatus: from, toStatus: v.status, actorSub: viewer.sub, actorName: actor.authorName, note: v.note || null, createdAt: now });
+}
+
+/**
+ * Admin only: reclassify a thread (a discussion that is really a bug, say). Becoming a report starts
+ * it `open`; becoming a discussion clears its status. Votes and the timeline are kept.
+ */
+export async function setThreadKind(deps: Deps, viewer: Viewer, threadId: string, kind: ThreadKind): Promise<void> {
+  requireAdmin(viewer);
+  if (!(THREAD_KINDS as readonly string[]).includes(kind)) throw new ForumError('invalid', 'Unknown kind');
+  if (!isUuid(threadId)) throw new ForumError('not_found', 'No such thread');
+  const [t] = await deps.db.select({ status: forumThreads.status }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
+  if (!t) throw new ForumError('not_found', 'No such thread');
+  const status = isReportKind(kind) ? (t.status ?? 'open') : null;
+  await deps.db.update(forumThreads).set({ kind, status, duplicateOfId: status === 'duplicate' ? undefined : null }).where(eq(forumThreads.id, threadId));
+}
+
 /** Admin only: delete a thread and everything under it (replies, reactions, bookmarks, views, mentions). */
 export async function deleteThread(deps: Deps, viewer: Viewer, threadId: string): Promise<void> {
   requireAdmin(viewer);
@@ -773,4 +908,4 @@ export async function deletePost(deps: Deps, viewer: Viewer, postId: string): Pr
     .where(eq(forumThreads.id, threadId));
 }
 
-export type { DisplayMode, ForumGroup };
+export type { DisplayMode, ForumGroup, ReportStatus, ThreadKind };

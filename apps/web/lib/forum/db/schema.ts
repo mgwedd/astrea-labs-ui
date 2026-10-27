@@ -1,3 +1,4 @@
+import { REPORT_STATUSES, THREAD_KINDS } from '../reports';
 import { boolean, index, integer, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 // Members forum. Accounts are identified by their Auth0 `sub`, the same id email_preferences uses.
@@ -9,6 +10,8 @@ export const BODY_FORMATS = ['rich', 'markdown'] as const;
 export type BodyFormat = (typeof BODY_FORMATS)[number];
 export const DISPLAY_MODES = ['username', 'handle'] as const;
 export type DisplayMode = (typeof DISPLAY_MODES)[number];
+// A thread is a discussion, a bug report or a feature request. Reports carry a status that staff move.
+export { REPORT_STATUSES, THREAD_KINDS, type ReportStatus, type ThreadKind } from '../reports';
 
 // One row per board. Aletheia is seeded by the migration; project boards are synced from
 // packages/research-registry (see syncCategories). Nothing else is invented.
@@ -58,6 +61,10 @@ export const forumThreads = pgTable(
     locked: boolean('locked').notNull().default(false),
     solutionPostId: uuid('solution_post_id'),
     replyCount: integer('reply_count').notNull().default(0),
+    kind: text('kind', { enum: THREAD_KINDS }).notNull().default('discussion'),
+    status: text('status', { enum: REPORT_STATUSES }), // null for discussions
+    duplicateOfId: uuid('duplicate_of_id'),
+    voteCount: integer('vote_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     lastActivityAt: timestamp('last_activity_at', { withTimezone: true }).notNull().defaultNow(),
@@ -65,6 +72,7 @@ export const forumThreads = pgTable(
   (t) => [
     index('forum_threads_category_activity_idx').on(t.categoryId, t.lastActivityAt),
     index('forum_threads_author_idx').on(t.authorSub),
+    index('forum_threads_kind_status_idx').on(t.kind, t.status),
   ],
 );
 
@@ -143,6 +151,37 @@ export const forumMentions = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('forum_mentions_sub_idx').on(t.mentionedSub, t.createdAt)],
+);
+
+// "Me too" votes on bug reports and feature requests. One per member per thread.
+export const forumVotes = pgTable(
+  'forum_votes',
+  {
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => forumThreads.id, { onDelete: 'cascade' }),
+    auth0Sub: text('auth0_sub').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.threadId, t.auth0Sub] })],
+);
+
+// Each status change on a report, shown as a timeline on the thread.
+export const forumStatusEvents = pgTable(
+  'forum_status_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    threadId: uuid('thread_id')
+      .notNull()
+      .references(() => forumThreads.id, { onDelete: 'cascade' }),
+    fromStatus: text('from_status', { enum: REPORT_STATUSES }),
+    toStatus: text('to_status', { enum: REPORT_STATUSES }).notNull(),
+    actorSub: text('actor_sub').notNull(),
+    actorName: text('actor_name').notNull(),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('forum_status_events_thread_idx').on(t.threadId, t.createdAt)],
 );
 
 export type ForumCategory = typeof forumCategories.$inferSelect;

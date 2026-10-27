@@ -13,7 +13,7 @@ const answers = answersSchema.parse({
   licenses: [{ state: 'CA', number: 'LMFT 123456' }],
   npi: '1234567890',
   supervisor: { name: 'Dr. Sam Supervisor', license: 'PSY 98765' },
-  practiceName: 'Example Counseling — Telehealth',
+  practiceName: 'Example Therapy — Telehealth',
   setting: 'group',
   clientStates: ['CA'],
   formats: ['video'],
@@ -35,7 +35,7 @@ const build = () => buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, co
 
 const audit = (unsignedSha256: string): AuditTrail => ({
   docType: 'beta-access',
-  docVersion: '2026-10-23-draft.2',
+  docVersion: '2026-10-23.2',
   documentId: '0d9e8f7a-1111-4222-8333-444455556666',
   applicationId,
   signerName: answers.fullName,
@@ -113,7 +113,7 @@ describe('Aletheia PDF output', () => {
   it('is unchanged byte for byte', async () => {
     const withC11 = { ...ticked, C11: new Date(Date.UTC(2026, 9, 23, 14, 2, 11)).toISOString() };
     const u = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(withC11, '2026-10-24'), createdAt });
-    expect(sha256Hex(u.bytes)).toBe('a5f61060af0c3fb5e3b02f067844509428569f7e0de31b7cca18c3bee5999613');
+    expect(sha256Hex(u.bytes)).toBe('d86340d37223534414f3b7854d00ac6ba3b00449d317175b9827ed8cbe2b2864');
     expect(u.signatureBlock).toEqual({
       page: 4,
       name: { x: 62, y: 384.66 },
@@ -138,6 +138,6 @@ describe('Aletheia PDF output', () => {
         signerUa: 'UA',
       },
     });
-    expect(sha256Hex(signed)).toBe('3a0562bc90fb9b2b196e04f545883e9b9c8c9f7e93acfa4986e4db07bdf0175a');
+    expect(sha256Hex(signed)).toBe('66626387ba061079825e5ea7593a1a0c853ab34a86cad2eba463ce226f6d06b0');
   });
 });
