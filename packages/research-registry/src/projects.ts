@@ -9,10 +9,10 @@ export const projects: Project[] = [
     name: 'Aletheia',
     tagline: 'Session notes for therapists, written on your Mac and kept on your Mac.',
     summary:
-      'Records a video-call session, transcribes it on-device, drafts a progress note, and lets you search and ask questions across a patient’s history. Nothing leaves the machine.',
+      'Records a video-call session, transcribes it on-device, drafts a progress note, and lets you search and ask questions across a patient’s history. No patient data leaves the machine.',
     description: [
       'Aletheia is a native macOS app for clinicians who run sessions over video. It captures your microphone and the call audio as separate tracks, transcribes them locally with whisper.cpp on Metal, and drafts a progress note in the format you already use: narrative, SOAP, DAP, BIRP or GIRP.',
-      'Speech recognition and the language model both run on the Mac. There are no accounts, no analytics and no telemetry, and raw audio is deleted after transcription by default. The app picks a model sized to your hardware and downloads it in-app, pinned by commit and verified by SHA-256.',
+      'Speech recognition and the language model both run on the Mac. The app has no accounts, no analytics and no telemetry, and raw audio is deleted after transcription by default. The app picks a model sized to your hardware and downloads it in-app, pinned by commit and verified by SHA-256.',
       'Ask answers questions about one session or a patient’s whole history, and every answer says how much of the record it actually read. Global search uses SQLite FTS5 with sound-alike matching for names, because speech models misspell them.',
     ],
     domains: ['software', 'ai', 'security'],
@@ -24,10 +24,8 @@ export const projects: Project[] = [
       'Grammar-constrained notes in narrative, SOAP, DAP, BIRP or GIRP format',
       'Ask across a patient’s history, with a coverage label on patient-wide answers',
       'App Sandbox, app lock, audit log without patient content, HIPAA Security Rule mapping',
-      'Automatic semver releases from CI on every merge',
     ],
     repo: { owner: 'mgwedd', name: 'aletheia' },
-    subdomain: 'aletheia',
     links: {
       docs: doc('mgwedd/aletheia', 'docs/SETUP-GUIDE.md'),
       changelog: doc('mgwedd/aletheia', 'CHANGELOG.md'),
@@ -38,7 +36,7 @@ export const projects: Project[] = [
         platform: 'macos',
         label: 'Download for macOS',
         url: gh('mgwedd/aletheia', '/releases/latest'),
-        note: 'macOS 14+ · Apple Silicon with 16 GB recommended',
+        note: 'macOS 14+ · Apple Silicon with 16 GB recommended · about 3 to 8 GB of disk for models',
       },
     ],
     beta: {

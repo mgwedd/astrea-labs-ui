@@ -103,7 +103,7 @@ export const DISCLOSURES: Block[] = [
   {
     id: "B7",
     title: "Your license key.",
-    text: "Your key is personal and works only for you. It lasts six months from the date it's issued, and we email you about 30 days before it ends so you can renew. After it expires, recording and AI keep working for a 14-day grace period, then pause. We may revoke a key if these terms are broken; the app picks up revocations when it checks for updates, and a revoked key pauses new recordings and AI at once. **Your records stay yours.** Without a valid key, and with no time limit, you can still open, read, search, export and delete everything you've recorded. Settings → Backups → Export All Records saves all of it to a folder you choose; it warns you if that folder syncs to a cloud service or sits on an unencrypted disk.",
+    text: "Your key is personal and works only for you. It lasts six months from the date it's issued, and we email you about 30 days before it ends so you can renew. After it expires, recording and AI keep working for a 14-day grace period, then pause. We may revoke a key if these terms are broken; the app picks up revocations when it checks for updates (if you turn update checks off, it won't), and a revoked key pauses new recordings and AI at once. **Your records stay yours.** Without a valid key, and with no time limit, you can still open, read, search, export and delete everything you've recorded. Settings → Backups → Export All Records saves all of it to a folder you choose; it warns you if that folder syncs to a cloud service or sits on an unencrypted disk.",
   },
   {
     id: "B8",

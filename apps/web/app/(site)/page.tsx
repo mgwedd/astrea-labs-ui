@@ -24,7 +24,7 @@ export default async function HomePage() {
               className="group inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               <Badge className="px-2 py-0">New</Badge>
-              Aletheia is in public beta
+              Aletheia is in private beta
               <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
           )}

@@ -1,12 +1,8 @@
 import 'server-only';
-import { projects } from '@astrea/research-registry';
 import { getDb } from './db/client';
 import { getSigningKey } from './keys';
 import { resendMailer } from './mailer';
 import type { Deps } from './service';
-
-const aletheia = projects.find((p) => p.slug === 'aletheia');
-export const ALETHEIA_DOWNLOAD_URL = aletheia?.downloads?.[0]?.url ?? 'https://github.com/mgwedd/aletheia/releases/latest';
 
 /**
  * The origin used in emailed links and for same-origin checks, no trailing slash.
@@ -31,7 +27,7 @@ export function licensingDeps(request?: Request): Deps {
     db: getDb(),
     key: getSigningKey(),
     mailer: resendMailer(),
-    downloadUrl: ALETHEIA_DOWNLOAD_URL,
+    downloadUrl: `${siteUrlFor(request)}/aletheia/download`,
     siteUrl: siteUrlFor(request),
   };
 }

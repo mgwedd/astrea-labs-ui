@@ -112,12 +112,12 @@ describe('stampAndCertify', () => {
 describe('Aletheia PDF output', () => {
   it('is unchanged byte for byte', async () => {
     const u = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(ticked, '2026-10-24'), createdAt });
-    expect(sha256Hex(u.bytes)).toBe('b496129e3699cb28ccf1e1c6c0092b47ca4b2c8c2d060838a521ad9e7226c20b');
+    expect(sha256Hex(u.bytes)).toBe('a57b5eb6103a64492c6332c5dc9b505839ba3fdd8bf4b1fafe15374fe383713d');
     expect(u.signatureBlock).toEqual({
       page: 4,
-      name: { x: 62, y: 374.1 },
-      date: { x: 62, y: 323.37 },
-      consent: { x: 84, y: 454.87, size: 9 },
+      name: { x: 62, y: 358.44 },
+      date: { x: 62, y: 307.71 },
+      consent: { x: 84, y: 439.21, size: 9 },
     });
     const at = (d: Date) => d.toISOString();
     const signed = await stampAndCertify(ALETHEIA_BETA, u.bytes, {
@@ -137,6 +137,6 @@ describe('Aletheia PDF output', () => {
         signerUa: 'UA',
       },
     });
-    expect(sha256Hex(signed)).toBe('5031b1e1c5d7502b41224f3766f36b62204df508b5279279effff92135f35470');
+    expect(sha256Hex(signed)).toBe('b781bad3ae2ecf9372906b319e4031132d9b5dd87cc8e138008784ab5615f0ae');
   });
 });
