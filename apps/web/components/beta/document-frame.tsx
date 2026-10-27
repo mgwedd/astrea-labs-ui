@@ -7,9 +7,9 @@ export function DocumentFrame({ title }: { title: string }) {
   return (
     <div className="flex flex-col gap-3">
       <iframe
-        src="/api/beta/document"
+        src="/api/beta/document#pagemode=none&view=FitH"
         title={title}
-        className="h-[60vh] min-h-[420px] w-full rounded-lg border bg-muted md:h-[75vh]"
+        className="h-[70vh] min-h-[480px] w-full rounded-lg border bg-muted md:h-[85vh]"
       />
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button variant="outline" size="sm" asChild>

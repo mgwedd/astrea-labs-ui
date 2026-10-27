@@ -87,9 +87,10 @@ export default async function SignPage({ searchParams }: { searchParams: Search 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <div className="container max-w-3xl pb-16">
+    <div className="container max-w-6xl pb-16">
       <PageHeader eyebrow="Aletheia · Beta application" title="Review and sign">
-        Read the document made from your answers, then sign below.
+        Read the document made from your answers, then type your name in the form below it. The signature boxes in
+        the document fill in when you sign.
       </PageHeader>
       <Card>
         <CardHeader className="p-4 sm:p-6">
