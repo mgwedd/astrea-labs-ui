@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { desc } from 'drizzle-orm';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@astrea/ui';
-import { CampaignComposer } from '@/components/admin/emails/campaign-composer';
+import { NewCampaign } from '@/components/admin/emails/new-campaign';
 import { Notice } from '@/components/admin/notice';
 import { formatUtc } from '@/lib/admin/format';
 import { audienceLabel, audienceOptions } from '@/lib/email/audience';
@@ -92,16 +92,45 @@ export default async function EmailsPage({ searchParams }: Props) {
       )}
       <Card>
         <CardHeader>
-          <CardTitle>New campaign</CardTitle>
-          <CardDescription>Paste or upload HTML. Sent to everyone who opted in on their account, except addresses that bounced or complained.</CardDescription>
+          <CardTitle>Account emails</CardTitle>
+          <CardDescription>License links and application and feedback notices, newest first.</CardDescription>
         </CardHeader>
         <CardContent>
-          <CampaignComposer audiences={audienceOptions()} />
+          {recent.length === 0 ? (
+            <p className="text-sm text-muted-foreground">None yet.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>To</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Last try</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {recent.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell className="break-all">{e.to}</TableCell>
+                    <TableCell className="max-w-64 break-words whitespace-normal">{e.subject}</TableCell>
+                    <TableCell className="whitespace-nowrap">{formatUtc(e.lastAttemptAt)}</TableCell>
+                    <TableCell>
+                      <Badge variant={e.status === 'failed' ? 'destructive' : e.status === 'sent' ? 'secondary' : 'outline'}>
+                        {e.status === 'failed' ? 'not sent' : e.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+      <section aria-label="Campaigns" className="flex flex-col gap-4">
+      <NewCampaign audiences={audienceOptions()} />
       <Card>
         <CardHeader>
-          <CardTitle>Past sends</CardTitle>
+          <CardTitle>Past campaigns</CardTitle>
         </CardHeader>
         <CardContent>
           {past.length === 0 ? (
@@ -145,42 +174,7 @@ export default async function EmailsPage({ searchParams }: Props) {
           )}
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Account emails</CardTitle>
-          <CardDescription>License links and application and feedback notices, newest first.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {recent.length === 0 ? (
-            <p className="text-sm text-muted-foreground">None yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>To</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Last try</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recent.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="break-all">{e.to}</TableCell>
-                    <TableCell className="max-w-64 break-words whitespace-normal">{e.subject}</TableCell>
-                    <TableCell className="whitespace-nowrap">{formatUtc(e.lastAttemptAt)}</TableCell>
-                    <TableCell>
-                      <Badge variant={e.status === 'failed' ? 'destructive' : e.status === 'sent' ? 'secondary' : 'outline'}>
-                        {e.status === 'failed' ? 'not sent' : e.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      </section>
     </div>
   );
 }

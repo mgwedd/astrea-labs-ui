@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { CheckCheck, FileText, KeyRound, MailWarning, MessageSquare } from 'lucide-react';
+import { CheckCheck, FileText, KeyRound, MailWarning, MessageSquare, MessagesSquare } from 'lucide-react';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Empty } from '@astrea/ui';
 import { formatUtc } from '@/lib/admin/format';
-import { EXPIRY_WINDOW_DAYS, getOverview, type QueueItem } from '@/lib/admin/overview';
+import { KIND_SHORT, isReportKind, statusLabel } from '@/lib/forum/reports';
+import { getOverview, type QueueItem } from '@/lib/admin/overview';
 import { getDb } from '@/lib/licensing/db/client';
 
 const KIND = {
@@ -33,105 +34,80 @@ function QueueRow({ item }: { item: QueueItem }) {
 
 export default async function AdminHome() {
   const o = await getOverview({ db: getDb() });
-
-  const stats = [
-    {
-      href: '/admin/applications',
-      label: 'Applications to review',
-      value: o.applicationsToReview,
-    },
-    {
-      href: '/admin/feedback',
-      label: 'Feedback to review',
-      value: o.feedbackToReview,
-      hint: o.feedbackFlagged > 0 ? `${o.feedbackFlagged} flagged` : undefined,
-    },
-    {
-      href: '/admin/licenses',
-      label: 'Active licenses',
-      value: o.activeLicenses,
-      hint: o.licensesExpiringSoon > 0 ? `${o.licensesExpiringSoon} expire within ${EXPIRY_WINDOW_DAYS} days` : undefined,
-    },
-    {
-      href: '/admin/licenses',
-      label: 'Test licenses live',
-      value: o.liveTestLicenses,
-    },
-  ];
+  const waiting = o.applicationsToReview + o.feedbackToReview + o.emailsFailed + o.licensesExpiringSoon;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">Overview</h1>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/admin/licenses">New test license</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/admin/emails">New campaign</Link>
-          </Button>
-        </div>
+        <Button asChild variant="ghost" size="sm" className="ml-auto">
+          <Link href="/admin/licenses">New test license</Link>
+        </Button>
       </div>
 
-      <section aria-label="At a glance" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map((s) => (
-          <Link key={s.label} href={s.href} className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <Card className="h-full transition-colors hover:bg-accent">
-              <CardHeader>
-                <CardDescription>{s.label}</CardDescription>
-                <CardTitle className="text-3xl tabular-nums">{s.value}</CardTitle>
-                {s.hint && <CardDescription>{s.hint}</CardDescription>}
-              </CardHeader>
-            </Card>
-          </Link>
-        ))}
-      </section>
+      <Card aria-labelledby="needs-you">
+        <CardHeader>
+          <CardTitle id="needs-you" className="flex items-center gap-2">
+            Needs you
+            {waiting > 0 && <Badge variant="secondary">{waiting}</Badge>}
+          </CardTitle>
+          <CardDescription>Flagged first, then oldest first.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          {o.queue.length === 0 ? (
+            <div className="px-6">
+              <Empty icon={CheckCheck} title="Nothing waiting" description="No applications or feedback to review, and no licenses expiring soon." className="min-h-0" />
+            </div>
+          ) : (
+            <ul>
+              {o.queue.map((item) => (
+                <QueueRow key={`${item.kind}:${item.id}`} item={item} />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <Card aria-labelledby="needs-you">
-          <CardHeader>
-            <CardTitle id="needs-you" className="flex items-center gap-2">
-              Needs you
-              {o.queue.length > 0 && <Badge variant="secondary">{o.applicationsToReview + o.feedbackToReview + o.emailsFailed}</Badge>}
-            </CardTitle>
-            <CardDescription>Flagged first, then oldest first.</CardDescription>
-          </CardHeader>
-          <CardContent className="px-0">
-            {o.queue.length === 0 ? (
-              <div className="px-6">
-                <Empty icon={CheckCheck} title="Nothing waiting" description="No applications or feedback to review, and no licenses expiring soon." className="min-h-0" />
-              </div>
-            ) : (
-              <ul>
-                {o.queue.map((item) => (
-                  <QueueRow key={`${item.kind}:${item.id}`} item={item} />
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+      <Card aria-labelledby="forum-activity">
+        <CardHeader>
+          <CardTitle id="forum-activity">Forum activity</CardTitle>
+          <CardDescription>
+            <Link href="/forum/reports" className="underline-offset-4 hover:underline">
+              {o.openReports === 0 ? 'No open bug reports or feature requests' : `${o.openReports} open bug ${o.openReports === 1 ? 'report or feature request' : 'reports and feature requests'}`}
+            </Link>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
+          {o.forumActivity.length === 0 ? (
+            <div className="px-6">
+              <Empty icon={MessagesSquare} title="No threads yet" className="min-h-0" />
+            </div>
+          ) : (
+            <ul>
+              {o.forumActivity.map((t) => (
+                <li key={t.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-6 py-3 last:border-b-0">
+                  <Badge variant={t.kind === 'discussion' ? 'outline' : 'secondary'}>{KIND_SHORT[t.kind]}</Badge>
+                  <Link href={`/forum/t/${t.id}`} className="flex min-w-0 flex-1 basis-56 flex-col underline-offset-4 hover:underline">
+                    <span className="truncate font-medium">{t.title}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {[t.category, isReportKind(t.kind) && t.status ? statusLabel(t.kind, t.status) : null, `${t.replyCount} ${t.replyCount === 1 ? 'reply' : 'replies'}`]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </Link>
+                  <span className="text-xs text-muted-foreground">{formatUtc(t.at)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
-        <Card aria-labelledby="last-campaign">
-          <CardHeader>
-            <CardTitle id="last-campaign">Last campaign</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {o.lastCampaign ? (
-              <div className="flex flex-col gap-1">
-                <span className="font-medium">{o.lastCampaign.subject}</span>
-                <span className="text-xs text-muted-foreground">
-                  {o.lastCampaign.audience} · {formatUtc(o.lastCampaign.sentAt)}
-                </span>
-                <div>
-                  <Badge variant={o.lastCampaign.status === 'failed' || o.lastCampaign.status === 'partial' ? 'destructive' : 'secondary'}>{o.lastCampaign.status}</Badge>
-                </div>
-              </div>
-            ) : (
-              <Empty title="No campaigns sent" className="min-h-0" />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        <Link href="/admin/licenses" className="underline-offset-4 hover:underline">
+          {o.activeLicenses} active {o.activeLicenses === 1 ? 'license' : 'licenses'} · {o.liveTestLicenses} test {o.liveTestLicenses === 1 ? 'license' : 'licenses'} live
+        </Link>
+      </p>
     </div>
   );
 }
