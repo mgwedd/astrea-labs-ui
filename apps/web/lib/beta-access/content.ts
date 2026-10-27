@@ -12,7 +12,7 @@ import { allBlocks, defineAgreement, requiredCheckboxIds, type Block } from "../
 export type { Block };
 
 export const DOC_TYPE = "beta-access";
-export const DOC_VERSION = "2026-10-27.2"; // one version for every block in this document
+export const DOC_VERSION = "2026-10-27.3"; // one version for every block in this document
 export const NO_CLIENT_INFO = "Don't include any client or patient information.";
 
 
@@ -40,17 +40,17 @@ export const HANDLING: Block[] = [
   {
     id: "H4",
     title: "Where your files live",
-    text: "You choose the data folder during setup. Pick a folder on this Mac. A cloud-synced folder (iCloud Drive, Dropbox and similar) is copied to that provider, which then holds patient information. By default your normal Mac backups don't include the folder; backing it up, encrypted, is your job.",
+    text: "You choose the data folder on your Mac during setup. Aletheia won't use a cloud-synced folder (iCloud Drive, Dropbox and similar): Apple doesn't offer a BAA for iCloud, and other sync services may not either. Your normal Mac backups don't include the folder by default. Backing it up is your job, by a HIPAA-compliant means.",
   },
   {
     id: "H5",
     title: "Activity log",
-    text: "The app keeps a local log of actions such as unlocks, exports and deletions, with the time and the macOS user. The log shows if entries were altered or removed. It holds no names or clinical content. You can export it for your own records or an audit.",
+    text: "The app keeps a local log of actions such as unlocks, patient consents, exports and deletions, with the time and the macOS user. The log shows if entries were altered or removed. It holds no names or clinical content. You can export it for your own records or an audit.",
   },
   {
     id: "H6",
     title: "Copying and AI writing tools",
-    text: "Text copied from a patient record stays on this Mac and asks clipboard managers not to keep it. Apple Intelligence and macOS Writing Tools are turned off for patient text, so it isn't sent to those services.",
+    text: "Text copied from a patient record stays on your Mac and asks clipboard managers not to keep it. Apple Intelligence and macOS Writing Tools are turned off for patient text, so it isn't sent to those services.",
   },
   {
     id: "H7",
@@ -78,12 +78,12 @@ export const DISCLOSURES: Block[] = [
   {
     id: "B2",
     title: "Runs only on your Mac.",
-    text: "Recordings, transcripts, notes and AI output stay on your Mac. Astrea Labs never receives them. The app itself has no network access. A separate built-in helper connects only to fixed addresses: to check for updates, to fetch a daily signed list of revoked license keys (only while update checks are on), and to download AI models you choose. None of these carries patient information or your license key. Like any download, the servers involved (GitHub, Hugging Face, Astrea Labs) can see your IP address and app version.",
+    text: "Recordings, transcripts, notes and AI output stay on your Mac. Astrea Labs LLC never receives them. The app itself has no network access. A separate built-in helper connects only to fixed addresses: to check for updates, to fetch a daily signed list of revoked license keys (only while update checks are on), and to download AI models you choose. None of these carries patient information or your license key. Like any download, the servers involved (GitHub, Hugging Face, Astrea Labs LLC) can see your IP address and app version.",
   },
   {
     id: "B3",
     title: "We are not your business associate.",
-    text: "Because we never create, receive, maintain or transmit your patients' information, Astrea Labs is not a HIPAA business associate and will not sign a BAA. If HIPAA applies to you or your practice, you remain responsible for meeting it.",
+    text: "Because we never create, receive, maintain or transmit your patients' information, Astrea Labs LLC is not a HIPAA business associate and will not sign a BAA. If HIPAA applies to you or your practice, you remain responsible for meeting it.",
   },
   {
     id: "B4",
@@ -126,11 +126,11 @@ export const termsAttestation = (legalVersion: string): Block => ({
 const OTHER_ATTESTATIONS: Block[] = [
   {
     id: "C2",
-    text: "The information I've given is true. I hold the license(s) I listed and they are active and unrestricted. If I'm pre-licensed, I practise under the supervisor I named. **I will tell Astrea Labs within 10 days** if my license lapses, is restricted, or is suspended.",
+    text: "The information I've given is true. I hold the license(s) I listed and they are active and unrestricted. If I'm pre-licensed, I practise under the supervisor I named. **I will tell Astrea Labs LLC within 10 days** if my license lapses, is restricted, or is suspended.",
   },
   {
     id: "C3",
-    text: "**HIPAA is my responsibility.** Where HIPAA applies to me or my practice, I'll include Aletheia in my risk analysis and follow my practice's privacy and security policies. I understand Astrea Labs is not my business associate.",
+    text: "**HIPAA is my responsibility.** Where HIPAA applies to me or my practice, I'll include Aletheia in my risk analysis and follow my practice's privacy and security policies. I understand Astrea Labs LLC is not my business associate.",
   },
   {
     id: "C4",
@@ -154,11 +154,11 @@ const OTHER_ATTESTATIONS: Block[] = [
   },
   {
     id: "C9",
-    text: "**No patient information to Astrea Labs.** I won't send Astrea Labs any patient information through any channel, including support email, GitHub issues, feedback forms or screen-shares.",
+    text: "**No patient information to Astrea Labs LLC.** I won't send Astrea Labs LLC any patient information through any channel, including support email, GitHub issues, feedback forms or screen-shares.",
   },
   {
     id: "C10",
-    text: "**My key is mine.** I won't share, transfer or publish my license key, and I won't use Aletheia outside the license terms. Astrea Labs may revoke my key if I break these terms.",
+    text: "**My key is mine.** I won't share, transfer or publish my license key, and I won't use Aletheia outside the license terms. Astrea Labs LLC may revoke my key if I break these terms.",
   },
   {
     id: "C12",

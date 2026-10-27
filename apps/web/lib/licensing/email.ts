@@ -63,7 +63,7 @@ export function keyLinkEmail(input: {
     '',
     `Link expired or already used? Request a new one at ${lost}.`,
     '',
-    '— Astrea Labs',
+    '— Astrea Labs LLC',
   ].join('\n');
 
   const html = `<!doctype html><html><body style="font-family:-apple-system,system-ui,sans-serif;line-height:1.5;color:#111;max-width:560px">
@@ -73,7 +73,7 @@ export function keyLinkEmail(input: {
 <p><a href="${escapeHtml(input.downloadUrl)}">Download Aletheia for macOS</a></p>
 <p>${escapeHtml(validity)}</p>
 <p>Link expired or already used? <a href="${escapeHtml(lost)}">Request a new one</a>.</p>
-<p>— Astrea Labs</p>
+<p>— Astrea Labs LLC</p>
 </body></html>`;
 
   return { subject: SUBJECTS[input.kind], text, html, secret: true };

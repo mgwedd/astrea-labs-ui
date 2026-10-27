@@ -37,8 +37,8 @@ export type AuditTrail = {
 // The ESM build only has a default export; the typings only have named ones.
 const fontkit = ((fontkitNs as unknown as { default?: typeof fontkitNs }).default ?? fontkitNs) as typeof fontkitNs;
 
-const PRODUCER = 'Astrea Labs signing (pdf-lib 1.17)';
-const CREATOR = 'Astrea Labs signing';
+const PRODUCER = 'Astrea Labs LLC signing (pdf-lib 1.17)';
+const CREATOR = 'Astrea Labs LLC signing';
 
 /** One row of the signer's details, e.g. an application answer. */
 export type Detail = { id: string; label: string; value: string };
@@ -574,7 +574,7 @@ export async function stampAndCertify(
   w.text(
     plain(
       "This file's own SHA-256 can't be printed inside it: writing the hash here would change the file, and so " +
-        `the hash. It is recorded in the Astrea Labs evidence record for document ${audit.documentId} and sealed ` +
+        `the hash. It is recorded in the Astrea Labs LLC evidence record for document ${audit.documentId} and sealed ` +
         'there with a digital signature over that hash. To check a copy, compute its SHA-256 and compare it with ' +
         'the recorded value.',
     ),
