@@ -48,8 +48,9 @@ export function SignForm({ expectedName, today }: { expectedName: string; today:
         router.refresh();
         return;
       }
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setProblem(problemFor(res.status, body.error));
+      const body = (await res.json().catch(() => ({}))) as { error?: string; step?: string };
+      if (body.error === 'consent_stale') setConsentAt(null);
+      setProblem(problemFor(res.status, body));
       if (res.status === 409) router.push('/aletheia/beta/signed');
     } catch {
       setProblem({ message: 'Couldn’t reach the server. Nothing was saved. Check your connection and try again.' });
@@ -99,30 +100,53 @@ export function SignForm({ expectedName, today }: { expectedName: string; today:
   );
 }
 
-function problemFor(status: number, error?: string): Problem {
-  if (status === 400 && error === 'name_mismatch') {
-    return { message: 'The name you typed doesn’t match the name on your application.' };
-  }
-  if (status === 400) {
-    return { message: 'Something in the signature wasn’t accepted. Nothing was saved. Reload the page and try again.' };
-  }
-  if (status === 401) {
-    return {
-      message: (
-        <>
-          Your signing session has ended. Nothing was saved.{' '}
-          <Link href="/aletheia/beta#resume" className="underline underline-offset-4">
-            Get a new signing link
-          </Link>
-          .
-        </>
-      ),
-    };
+const SUPPORT_EMAIL = 'support@astrealabs.com';
+
+// What failed on our side, in the signer's words. The code goes in a support email.
+const SYSTEM_STEP: Record<string, string> = {
+  draft: 'your unsigned document couldn’t be loaded',
+  stamp: 'your signature couldn’t be added to the document',
+  seal: 'the signed document couldn’t be sealed',
+  storage: 'the signed document couldn’t be saved',
+  database: 'the signature record couldn’t be saved',
+};
+
+const newLink = (
+  <Link href="/aletheia/beta#resume" className="underline underline-offset-4">
+    Get a new signing link
+  </Link>
+);
+
+function problemFor(status: number, body: { error?: string; step?: string }): Problem {
+  switch (body.error) {
+    case 'name_mismatch':
+      return { message: 'The name you typed doesn’t match the name on your application. Nothing was saved.' };
+    case 'consent_stale':
+      return { message: 'Your tick on the e-signature box has expired. Nothing was saved. Tick the box again, then sign.' };
+    case 'not_viewed':
+      return { message: 'The document hadn’t finished loading when you signed. Nothing was saved. Reload this page, wait for the document to appear, then sign.' };
+    case 'terms_changed':
+      return { message: <>Our terms were updated after your document was made, so it can’t be signed. Nothing was saved. {newLink} to sign the current version.</> };
+    case 'already_signed':
+      return { message: 'This application is already signed. Taking you to your confirmation…' };
+    case 'session':
+      return { message: <>Your signing session has ended. Nothing was saved. {newLink}.</> };
+    case 'system': {
+      const step = body.step && SYSTEM_STEP[body.step] ? body.step : 'unknown';
+      const what = SYSTEM_STEP[step] ?? 'something failed';
+      return {
+        message: (
+          <>
+            A system error on our side stopped the signing: {what}. This isn’t caused by anything you entered. Nothing was
+            saved and your application isn’t submitted yet. Try again in a few minutes. If it keeps happening, email{' '}
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="underline underline-offset-4">{SUPPORT_EMAIL}</a> and quote
+            code SIGN-{step.toUpperCase()}.
+          </>
+        ),
+      };
+    }
   }
   if (status === 403) return { message: 'Our security check didn’t accept this request. Nothing was saved. Try again in a moment; if it keeps happening, try another browser or network.' };
-  if (status === 409) return { message: 'This application is already signed. Taking you to your confirmation…' };
-  if (status === 502) {
-    return { message: 'We couldn’t store your signed document, so nothing was saved and your application isn’t submitted yet. Please try again.' };
-  }
-  return { message: 'Something went wrong. Nothing was saved. Please try again.' };
+  if (status === 400) return { message: 'Your browser sent a request we couldn’t read. Nothing was saved. Reload the page and try again.' };
+  return { message: `Something went wrong (error ${status}). Nothing was saved. Please try again.` };
 }
