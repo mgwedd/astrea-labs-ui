@@ -83,7 +83,13 @@ export type SignInput = {
   claim: (documentId: string) => SQL;
 };
 
-export type SignResult = { ok: true; documentId: string } | { ok: false; error: 'lost' | 'store_failed' };
+/** The step a failed attempt stopped at, for logs and the error shown to the signer. */
+export type SignStep = 'stamp' | 'seal' | 'storage' | 'database';
+
+export type SignResult =
+  | { ok: true; documentId: string }
+  | { ok: false; error: 'lost' }
+  | { ok: false; error: 'store_failed'; step: SignStep };
 
 /**
  * Stamps, seals and stores the signed document: the PDF in Blob, the evidence
@@ -113,6 +119,7 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
   };
 
   let stored = false;
+  let step: SignStep = 'stamp';
   try {
     const signed = await stampAndCertify(def, input.draft, {
       signatureBlock: input.signatureBlock,
@@ -121,10 +128,13 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
       audit,
     });
     const pdfSha256 = sha256Hex(signed);
+    step = 'seal';
     const seal = await deps.sealer.seal(sealMessage(documentId, pdfSha256));
 
+    step = 'storage';
     await deps.blob.put(pdfPath, signed, 'application/pdf');
 
+    step = 'database';
     const res = await deps.db.execute(sql`
       WITH claimed AS (${input.claim(documentId)})
       INSERT INTO ${signedDocuments} (
@@ -144,7 +154,7 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
       RETURNING "id"`);
     stored = (res as unknown as { rows: unknown[] }).rows.length === 1;
   } catch (err) {
-    console.error('signed: store failed', errType(err));
+    console.error(`signed: store failed at ${step}`, errType(err));
     // The statement may have committed before the error reached us (e.g. a
     // dropped HTTP response): never delete the blobs of a stored record.
     const committed = await deps.db
@@ -156,7 +166,7 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
       .catch(() => 'unknown' as const);
     // Unknown: keep the blobs (an orphan is better than a record without its PDF).
     if (committed === 'no') await tryDelete(deps.blob, [pdfPath]);
-    if (committed !== 'yes') return { ok: false, error: 'store_failed' };
+    if (committed !== 'yes') return { ok: false, error: 'store_failed', step };
     stored = true;
   }
   if (!stored) {

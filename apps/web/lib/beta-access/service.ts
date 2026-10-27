@@ -416,7 +416,9 @@ export async function getDocument(deps: BetaDeps, cookieValue: string | undefine
 
 export type SignOutcome =
   | { ok: true; documentId: string }
-  | { ok: false; error: 'session' | 'already_signed' | 'name_mismatch' | 'invalid' | 'store_failed' };
+  | { ok: false; error: 'session' | 'already_signed' | 'name_mismatch' | 'not_viewed' | 'consent_stale' | 'terms_changed' }
+  /** A fault on our side, not in what the signer entered; `step` says where. */
+  | { ok: false; error: 'system'; step: 'draft' | signed.SignStep };
 
 export type RequestMeta = { ip: string | null; ua: string | null };
 
@@ -442,25 +444,25 @@ export async function sign(
 
   // The document must have been fetched for viewing (GET /api/beta/document) first.
   if (!app.documentViewedAt || !app.signatureBlock || !app.draftPdfSha256 || !app.emailConfirmedAt || !app.documentCreatedAt) {
-    return { ok: false, error: 'invalid' };
+    return { ok: false, error: 'not_viewed' };
   }
   // C12 ticked within the session (now-2h .. now+1min), and not before the document was viewed.
   const esignAt = parseIso(input.consentEsignAt);
   const earliest = Math.max(now.getTime() - SIGNING_SESSION_TTL_MS, app.documentViewedAt.getTime() - SKEW_MS);
   if (!esignAt || esignAt.getTime() > now.getTime() + SKEW_MS || esignAt.getTime() < earliest) {
-    return { ok: false, error: 'invalid' };
+    return { ok: false, error: 'consent_stale' };
   }
   const typed = input.name.normalize('NFC').trim().replace(/\s+/g, ' ');
   if (!typed || nameKey(typed) !== nameKey(answers.fullName)) return { ok: false, error: 'name_mismatch' };
 
   // The terms in force must still be the ones ticked and shown in the document.
   const def = betaAgreement((await deps.legalDocs()).version);
-  if (signed.consentsAreStale(def, app.consents)) return { ok: false, error: 'invalid' };
+  if (signed.consentsAreStale(def, app.consents)) return { ok: false, error: 'terms_changed' };
 
   const draft = await deps.blob.get(app.draftPdfPath!);
   if (!draft || sha256Hex(draft) !== app.draftPdfSha256) {
     console.error('beta sign: draft missing or changed');
-    return { ok: false, error: 'store_failed' };
+    return { ok: false, error: 'system', step: 'draft' };
   }
 
   const result = await signed.signAndStore(deps, {
@@ -497,7 +499,9 @@ export async function sign(
       RETURNING "id"`,
   });
   // 'lost': another attempt won (double submit), or the draft changed under us.
-  if (!result.ok) return { ok: false, error: result.error === 'lost' ? 'already_signed' : 'store_failed' };
+  if (!result.ok) {
+    return result.error === 'lost' ? { ok: false, error: 'already_signed' } : { ok: false, error: 'system', step: result.step };
+  }
   const documentId = result.documentId;
 
   await notifyReceived(deps, app.id);

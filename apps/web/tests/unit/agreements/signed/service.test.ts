@@ -196,7 +196,14 @@ describe('signed level, generic path', () => {
   it('leaves nothing stored when a blob write fails', async () => {
     const input = await signInput();
     failPut = (p) => p.endsWith('/document.pdf');
-    expect(await signAndStore({ db, blob, sealer: testSealer }, input)).toEqual({ ok: false, error: 'store_failed' });
+    expect(await signAndStore({ db, blob, sealer: testSealer }, input)).toEqual({ ok: false, error: 'store_failed', step: 'storage' });
+    expect(await db.select().from(signedDocuments)).toHaveLength(0);
+  });
+
+  it('reports the seal step when sealing fails', async () => {
+    const input = await signInput();
+    const failing = { seal: async () => { throw new Error('no issuer'); } };
+    expect(await signAndStore({ db, blob, sealer: failing }, input)).toEqual({ ok: false, error: 'store_failed', step: 'seal' });
     expect(await db.select().from(signedDocuments)).toHaveLength(0);
     failPut = null;
     expect((await signAndStore({ db, blob, sealer: testSealer }, input)).ok).toBe(true);

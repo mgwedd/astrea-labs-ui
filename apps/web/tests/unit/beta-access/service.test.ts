@@ -369,7 +369,7 @@ describe('sign', () => {
     const at = (ms: number) => new Date(clock.getTime() + ms).toISOString();
     // readyToSign viewed the document 2 minutes ago; C12 can't predate that (beyond 1 min of skew).
     for (const consentEsignAt of [at(2 * MIN), at(-2 * HOUR - MIN), at(-3 * MIN - 1000), 'not a date']) {
-      expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt }, meta)).toEqual({ ok: false, error: 'invalid' });
+      expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt }, meta)).toEqual({ ok: false, error: 'consent_stale' });
     }
   });
 
@@ -379,7 +379,7 @@ describe('sign', () => {
     if (!opened.ok) throw new Error();
     expect(await sign(deps, opened.sessionToken, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
       ok: false,
-      error: 'invalid',
+      error: 'not_viewed',
     });
   });
 
@@ -407,7 +407,7 @@ describe('sign', () => {
     const session = await readyToSign();
     const body = { name: 'Jane Doe', consentEsignAt: clock.toISOString() };
     failPut = (p) => p.endsWith('/document.pdf');
-    expect(await sign(deps, session, body, meta)).toEqual({ ok: false, error: 'store_failed' });
+    expect(await sign(deps, session, body, meta)).toEqual({ ok: false, error: 'system', step: 'storage' });
     const [app] = await deps.db.select().from(betaApplications);
     expect(app).toMatchObject({ status: 'draft', documentId: null });
     expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
@@ -431,7 +431,8 @@ describe('sign', () => {
     vi.spyOn(deps.db, 'execute').mockRejectedValueOnce(new Error('simulated'));
     expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
       ok: false,
-      error: 'store_failed',
+      error: 'system',
+      step: 'database',
     });
     expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
     const pdfPath = written.find((p) => p.endsWith('/document.pdf'))!;
@@ -539,7 +540,7 @@ describe('terms version', () => {
     const session = await readyToSign();
     docs = legalAt('2026-10-26');
     const r = await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta);
-    expect(r).toEqual({ ok: false, error: 'invalid' });
+    expect(r).toEqual({ ok: false, error: 'terms_changed' });
     expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
   });
 });
