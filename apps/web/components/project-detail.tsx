@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowUpRight, BookOpen, Check, Download, Globe, Lock } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, BookOpen, Check, Download, Globe, Lock } from 'lucide-react';
 import { getDomain, technicalNotes, type Platform, type Project } from '@astrea/research-registry';
 import {
   Badge,
@@ -47,10 +47,12 @@ export const PLATFORM_LABEL: Record<Platform, string> = {
 };
 
 export async function ProjectDetail({ project }: { project: Project }) {
-  const release = project.releases ? await getLatestRelease(project.releases) : null;
+  const beta = project.beta;
+  // A gated beta leads with the application; builds reach approved testers by email.
+  const release = project.releases && !beta ? await getLatestRelease(project.releases) : null;
   const notes = technicalNotes.filter((n) => n.projectSlug === project.slug);
   const repoUrl = project.repo && !project.repo.private && `https://github.com/${project.repo.owner}/${project.repo.name}`;
-  const primaryDownload = project.downloads?.[0];
+  const primaryDownload = !beta && project.downloads?.[0];
 
   return (
     <div className="container">
@@ -80,6 +82,13 @@ export async function ProjectDetail({ project }: { project: Project }) {
         <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">{project.name}</h1>
         <p className="max-w-2xl text-pretty text-xl text-muted-foreground">{project.tagline}</p>
         <div className="flex flex-wrap gap-3 pt-2">
+          {beta && (
+            <Button asChild>
+              <Link href={beta.apply}>
+                Apply for the beta <ArrowRight data-icon="inline-end" />
+              </Link>
+            </Button>
+          )}
           {primaryDownload && (
             <Button asChild>
               <Link href={project.slug === 'aletheia' ? '/aletheia/download' : '/downloads'}>
@@ -89,7 +98,7 @@ export async function ProjectDetail({ project }: { project: Project }) {
             </Button>
           )}
           {project.links.site && (
-            <Button variant={primaryDownload ? 'outline' : 'default'} asChild>
+            <Button variant={primaryDownload || beta ? 'outline' : 'default'} asChild>
               <a href={project.links.site} target="_blank" rel="noreferrer">
                 <Globe /> Open {new URL(project.links.site).host}
               </a>
@@ -110,6 +119,14 @@ export async function ProjectDetail({ project }: { project: Project }) {
             </Button>
           )}
         </div>
+        {beta && (
+          <p className="text-sm text-muted-foreground">
+            {beta.audience}{' '}
+            <Link href={beta.about} className="underline underline-offset-4 hover:text-foreground">
+              How the beta works
+            </Link>
+          </p>
+        )}
       </header>
 
       {project.media && project.media.length > 0 && (
