@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
-// Applicant privacy notice (spec sections E, H and D2). Retention is pending
-// counsel (appendix Q6), so it is left out rather than given a made-up period.
+// Applicant privacy notice (spec sections E, H and D2). Retention is left out
+// rather than given a made-up period.
 export function ApplicantPrivacyNotice() {
   return (
     <section aria-labelledby="privacy-heading" id="privacy" className="flex flex-col gap-5 text-sm text-muted-foreground">

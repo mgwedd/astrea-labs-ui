@@ -42,7 +42,7 @@ Known traps:
 This is a real company's public site. Every claim on it must be true.
 
 - **Never invent facts.** That includes stats, benchmarks, papers, preprints, citations, customers, quotes, emails, team members, dates and project status.
-- **If the content isn't known, leave a visible `TODO:` or omit the section.** Never write plausible filler.
+- **If the content isn't known, omit it.** Never write plausible filler, and never leave `TODO:`, "pending counsel" or draft markers in the app, its copy or committed docs. Log open questions in a gitignored `*.local.md` file instead.
 - **Projects, publications and status come only from `packages/research-registry`.** Don't hardcode them in pages.
 - **Keep the copy short.** Cut subtitles, taglines and helper text that don't carry information.
 

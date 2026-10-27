@@ -280,8 +280,7 @@ export type OpenResult =
  * one conditional UPDATE. A loser of a concurrent open gets 'used'.
  *
  * If the consent text changed since the applicant ticked it, the link is
- * reported 'expired' and the applicant has to apply again (TODO: a clearer
- * message for this case in the UI).
+ * reported 'expired' and the applicant has to apply again.
  */
 export async function openSigningLink(deps: BetaDeps, token: string): Promise<OpenResult> {
   if (!looksLikeLinkToken(token)) return { ok: false, reason: 'invalid' };

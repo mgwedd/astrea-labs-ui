@@ -1,17 +1,15 @@
 // Short-lived test licenses the owner keeps on hand to try new builds before
 // telling users. Signed with the production key, so release builds accept them.
-// At most MAX_LIVE_TEST_LICENSES are live at once, and a row is deleted as soon as
-// its license expires, so nothing piles up. No email, no key link, no license row.
+// A row is deleted as soon as its license expires, so nothing piles up. No email, no key link, no license row.
 // The token is never stored; it is rebuilt from the row (Ed25519 is deterministic).
 import { randomUUID } from 'node:crypto';
-import { and, asc, count, eq, gt, isNull, lte } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull, lte } from 'drizzle-orm';
 import { testLicenses, type TestLicense } from './db/schema';
 import type { Db } from './service';
 import { CLAIMS_BY_TIER, signLicense, type LicensePayload, type SigningKey } from './token';
 
 export const TEST_LICENSE_DAYS = [1, 3, 7, 30] as const;
 export type TestLicenseDays = (typeof TEST_LICENSE_DAYS)[number];
-export const MAX_LIVE_TEST_LICENSES = 3;
 
 type TestDeps = { db: Db; key: SigningKey; now?: () => Date };
 
@@ -33,12 +31,10 @@ export async function listTestLicenses(deps: Pick<TestDeps, 'db' | 'now'>): Prom
 export async function createTestLicense(
   deps: TestDeps,
   input: { days: TestLicenseDays; label: string; by: string },
-): Promise<{ ok: true; license: TestLicense } | { ok: false; error: 'limit' }> {
+): Promise<TestLicense> {
   if (!TEST_LICENSE_DAYS.includes(input.days)) throw new Error(`test licenses last ${TEST_LICENSE_DAYS.join(', ')} days`);
   const now = deps.now?.() ?? new Date();
   await pruneTestLicenses(deps);
-  const [{ n }] = await deps.db.select({ n: count() }).from(testLicenses).where(live(now));
-  if (n >= MAX_LIVE_TEST_LICENSES) return { ok: false, error: 'limit' };
   const iat = toUnix(now);
   const [license] = await deps.db
     .insert(testLicenses)
@@ -51,7 +47,7 @@ export async function createTestLicense(
       createdBy: input.by,
     })
     .returning();
-  return { ok: true, license: license! };
+  return license!;
 }
 
 /** The exact token for a test license. Throws if it was signed with a key that is no longer active. */

@@ -11,7 +11,6 @@ import { buildRevocationList, type Db } from '@/lib/licensing/service';
 import {
   createTestLicense,
   listTestLicenses,
-  MAX_LIVE_TEST_LICENSES,
   revealTestLicense,
   revokeTestLicense,
   TEST_LICENSE_DAYS,
@@ -34,9 +33,7 @@ beforeEach(async () => {
 });
 
 const create = async (days: (typeof TEST_LICENSE_DAYS)[number] = 7, label = 'smoke') => {
-  const r = await createTestLicense(deps, { days, label, by: 'admin@example.com' });
-  if (!r.ok) throw new Error(r.error);
-  return r.license;
+  return createTestLicense(deps, { days, label, by: 'admin@example.com' });
 };
 
 describe('test licenses', () => {
@@ -54,12 +51,9 @@ describe('test licenses', () => {
     });
   }
 
-  it(`keeps at most ${MAX_LIVE_TEST_LICENSES} live`, async () => {
-    for (let i = 0; i < MAX_LIVE_TEST_LICENSES; i++) await create();
-    expect(await createTestLicense(deps, { days: 1, label: 'x', by: 'a' })).toEqual({ ok: false, error: 'limit' });
-    const [first] = await listTestLicenses(deps);
-    await revokeTestLicense(deps, first!.lid);
-    expect((await createTestLicense(deps, { days: 1, label: 'x', by: 'a' })).ok).toBe(true);
+  it('has no cap on live test licenses', async () => {
+    for (let i = 0; i < 5; i++) await create();
+    expect(await listTestLicenses(deps)).toHaveLength(5);
   });
 
   it('deletes a test license once it expires', async () => {

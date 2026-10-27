@@ -46,7 +46,6 @@ export default async function AccountPage() {
                 <span className="text-muted-foreground">{licenseStatus(l)}</span>
               </div>
             ))}
-            {/* TODO: show the key again once there is a safe in-account flow; today it only comes by emailed single-use link. */}
           </CardContent>
         </Card>
         <Card>
@@ -71,7 +70,6 @@ export default async function AccountPage() {
           </CardHeader>
           <CardContent className="text-sm">
             <Link href="/feedback" className="underline underline-offset-4">Send feedback</Link>
-            {/* TODO: past feedback and support threads, once those exist. */}
           </CardContent>
         </Card>
       </div>

@@ -9,7 +9,7 @@ import { requireAdmin } from '@/lib/admin/gate';
 import { groupLicenses } from '@/lib/admin/review-lists';
 import { getDb } from '@/lib/licensing/db/client';
 import { licenses } from '@/lib/licensing/db/schema';
-import { listTestLicenses, MAX_LIVE_TEST_LICENSES } from '@/lib/licensing/test-license';
+import { listTestLicenses } from '@/lib/licensing/test-license';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -57,7 +57,7 @@ export default async function LicensesPage({ searchParams }: { searchParams: Sea
 
       <LicenseSection
         title="Test licenses"
-        count={`${liveTests} of ${MAX_LIVE_TEST_LICENSES} live`}
+        count={`${liveTests} live`}
         hint="They expire on their own; keys stay hidden until revealed."
         defaultOpen
       >

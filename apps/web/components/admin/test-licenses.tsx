@@ -2,13 +2,12 @@ import { Badge, Card, CardHeader, CardTitle, Empty, Field, FieldLabel, Input, Ra
 import { createTestLicenseAction, revokeTestLicenseAction } from '@/app/(admin)/admin/actions';
 import { formatUtc } from '@/lib/admin/format';
 import type { TestLicense } from '@/lib/licensing/db/schema';
-import { MAX_LIVE_TEST_LICENSES, TEST_LICENSE_DAYS } from '@/lib/licensing/test-license';
+import { TEST_LICENSE_DAYS } from '@/lib/licensing/test-license';
 import { SubmitButton } from './submit-button';
 import { TestLicenseReveal } from './test-license-reveal';
 
-/** The live test licenses, each revealable, and a form to add one while there's room. */
+/** The live test licenses, each revealable, and a form to add one. */
 export function TestLicenses({ licenses }: { licenses: TestLicense[] }) {
-  const liveCount = licenses.filter((l) => !l.revokedAt).length;
   return (
     <div className="flex flex-col gap-4">
       {licenses.length === 0 && <Empty title="No test licenses" />}
@@ -44,34 +43,28 @@ export function TestLicenses({ licenses }: { licenses: TestLicense[] }) {
         </Card>
       ))}
 
-      {liveCount < MAX_LIVE_TEST_LICENSES ? (
-        <form action={createTestLicenseAction} className="flex flex-col gap-3">
-          <Field>
-            <FieldLabel htmlFor="test-label">Label</FieldLabel>
-            <Input id="test-label" name="label" required maxLength={60} placeholder="e.g. v2.64 smoke test" />
-          </Field>
-          <Field>
-            <FieldLabel>Lasts</FieldLabel>
-            <RadioGroup name="days" defaultValue="7" className="flex flex-wrap gap-4">
-              {TEST_LICENSE_DAYS.map((d) => (
-                <Field key={d} orientation="horizontal" className="w-auto">
-                  <RadioGroupItem id={`test-days-${d}`} value={String(d)} />
-                  <FieldLabel htmlFor={`test-days-${d}`}>
-                    {d} {d === 1 ? 'day' : 'days'}
-                  </FieldLabel>
-                </Field>
-              ))}
-            </RadioGroup>
-          </Field>
-          <div>
-            <SubmitButton size="sm">Add test license</SubmitButton>
-          </div>
-        </form>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {MAX_LIVE_TEST_LICENSES} test licenses are live. Revoke one or wait for one to expire to add another.
-        </p>
-      )}
+      <form action={createTestLicenseAction} className="flex flex-col gap-3">
+        <Field>
+          <FieldLabel htmlFor="test-label">Label</FieldLabel>
+          <Input id="test-label" name="label" required maxLength={60} placeholder="e.g. v2.64 smoke test" />
+        </Field>
+        <Field>
+          <FieldLabel>Lasts</FieldLabel>
+          <RadioGroup name="days" defaultValue="7" className="flex flex-wrap gap-4">
+            {TEST_LICENSE_DAYS.map((d) => (
+              <Field key={d} orientation="horizontal" className="w-auto">
+                <RadioGroupItem id={`test-days-${d}`} value={String(d)} />
+                <FieldLabel htmlFor={`test-days-${d}`}>
+                  {d} {d === 1 ? 'day' : 'days'}
+                </FieldLabel>
+              </Field>
+            ))}
+          </RadioGroup>
+        </Field>
+        <div>
+          <SubmitButton size="sm">Add test license</SubmitButton>
+        </div>
+      </form>
     </div>
   );
 }
