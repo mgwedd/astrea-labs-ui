@@ -30,7 +30,7 @@ make test-e2e
 ```
 
 ## 📚 Data Model 
-<img width="1259" height="753" alt="image" src="https://github.com/user-attachments/assets/75860e29-dfa6-472d-9beb-106561a7e3b3" />
+<img src="docs/data-model.svg" width="1260" alt="Data model: the site reads and writes Neon Postgres (licensing, agreements, feedback, email, forum). Vercel Blob, Resend, Auth0 and the Git repo sit outside Postgres." />
 
 
 ## 🔄 CI/CD Pipelines (GitHub Actions)

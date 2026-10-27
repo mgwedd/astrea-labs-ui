@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1260 700" width="1260" height="700" role="img" aria-labelledby="t d">
+  <title id="t">Astrea Labs data model</title>
+  <desc id="d">The Next.js site on Vercel reads and writes Neon Postgres through Drizzle. Postgres holds licensing, agreements, feedback, email and forum data. Vercel Blob stores signed PDFs, Resend delivers email, Auth0 holds accounts, and the Git repo holds posts and the research registry.</desc>
+  <style>
+    .bg { fill: #ffffff; }
+    .site { fill: #f8fafc; stroke: #cbd5e1; }
+    .db { fill: #eef2ff; stroke: #a5b4fc; }
+    .dom { fill: #ecfdf5; stroke: #6ee7b7; }
+    .ext { fill: #fff7ed; stroke: #fdba74; }
+    .repo { fill: #f1f5f9; stroke: #cbd5e1; }
+    .line { stroke: #94a3b8; fill: none; }
+    .arrow { fill: #94a3b8; }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-anchor: middle; }
+    .h { font-size: 26px; font-weight: 600; fill: #0f172a; }
+    .s { font-size: 19px; fill: #475569; }
+    .dbh { font-size: 26px; font-weight: 600; fill: #3730a3; }
+    .dbs { font-size: 19px; fill: #4f46e5; }
+    .domh { font-size: 24px; font-weight: 600; fill: #065f46; }
+    .doms { font-size: 17px; fill: #047857; }
+    .exth { font-size: 24px; font-weight: 600; fill: #9a3412; }
+    .exts { font-size: 18px; fill: #c2410c; }
+    .cap { font-size: 16px; fill: #64748b; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #141414; }
+      .site { fill: #1c1c1c; stroke: #3f3f46; }
+      .db { fill: #3b3486; stroke: #6d64d8; }
+      .dom { fill: #064e3b; stroke: #34d399; }
+      .ext { fill: #7c2d12; stroke: #fb923c; }
+      .repo { fill: #44403c; stroke: #78716c; }
+      .line { stroke: #71717a; }
+      .arrow { fill: #71717a; }
+      .h { fill: #fafafa; }
+      .s { fill: #d4d4d8; }
+      .dbh { fill: #c7d2fe; }
+      .dbs { fill: #a5b4fc; }
+      .domh { fill: #a7f3d0; }
+      .doms { fill: #6ee7b7; }
+      .exth { fill: #fed7aa; }
+      .exts { fill: #fdba74; }
+      .cap { fill: #a1a1aa; }
+    }
+  </style>
+
+  <rect class="bg" width="1260" height="700"/>
+
+  <!-- Site -->
+  <rect class="site" x="330" y="32" width="600" height="112" rx="14" stroke-width="1.5"/>
+  <text class="h" x="630" y="80">Site: Next.js on Vercel</text>
+  <text class="s" x="630" y="114">Server code reads and writes</text>
+
+  <!-- Site to Postgres -->
+  <line class="line" x1="630" y1="144" x2="630" y2="214" stroke-width="2"/>
+  <path class="arrow" d="M622 212 L630 226 L638 212 Z"/>
+
+  <!-- Postgres -->
+  <rect class="db" x="34" y="230" width="1192" height="300" rx="36" stroke-width="1.5"/>
+  <text class="dbh" x="630" y="282">Neon Postgres</text>
+  <text class="dbs" x="630" y="316">Drizzle ORM, migrations in apps/web/drizzle</text>
+
+  <rect class="dom" x="74" y="358" width="206" height="128" rx="14" stroke-width="1.5"/>
+  <text class="domh" x="177" y="410">Licensing</text>
+  <text class="doms" x="177" y="440">Licenses, invites,</text>
+  <text class="doms" x="177" y="462">applications</text>
+
+  <rect class="dom" x="300" y="358" width="206" height="128" rx="14" stroke-width="1.5"/>
+  <text class="domh" x="403" y="410">Agreements</text>
+  <text class="doms" x="403" y="440">Signatures,</text>
+  <text class="doms" x="403" y="462">admin reviews</text>
+
+  <rect class="dom" x="527" y="358" width="206" height="128" rx="14" stroke-width="1.5"/>
+  <text class="domh" x="630" y="410">Feedback</text>
+  <text class="doms" x="630" y="440">Submissions,</text>
+  <text class="doms" x="630" y="462">replies</text>
+
+  <rect class="dom" x="754" y="358" width="206" height="128" rx="14" stroke-width="1.5"/>
+  <text class="domh" x="857" y="410">Email</text>
+  <text class="doms" x="857" y="440">Campaigns, opt-ins,</text>
+  <text class="doms" x="857" y="462">send records</text>
+
+  <rect class="dom" x="980" y="358" width="206" height="128" rx="14" stroke-width="1.5"/>
+  <text class="domh" x="1083" y="410">Forum</text>
+  <text class="doms" x="1083" y="440">Threads, posts,</text>
+  <text class="doms" x="1083" y="462">reports, votes</text>
+
+  <!-- Outside Postgres -->
+  <text class="cap" x="630" y="578">Outside Postgres</text>
+
+  <rect class="ext" x="34" y="600" width="268" height="84" rx="12" stroke-width="1.5"/>
+  <text class="exth" x="168" y="636">Vercel Blob</text>
+  <text class="exts" x="168" y="664">Signed PDFs</text>
+
+  <rect class="ext" x="342" y="600" width="268" height="84" rx="12" stroke-width="1.5"/>
+  <text class="exth" x="476" y="636">Resend</text>
+  <text class="exts" x="476" y="664">Email delivery</text>
+
+  <rect class="ext" x="650" y="600" width="268" height="84" rx="12" stroke-width="1.5"/>
+  <text class="exth" x="784" y="636">Auth0</text>
+  <text class="exts" x="784" y="664">Accounts</text>
+
+  <rect class="repo" x="958" y="600" width="268" height="84" rx="12" stroke-width="1.5"/>
+  <text class="h" x="1092" y="636" style="font-size:24px">Git repo</text>
+  <text class="s" x="1092" y="664" style="font-size:18px">Posts, registry</text>
+</svg>
