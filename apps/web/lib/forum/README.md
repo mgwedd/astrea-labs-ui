@@ -40,7 +40,7 @@ Services throw `ForumError` with `code`: `invalid` (zod or content problem, mess
 Bodies: `{ format: 'rich' | 'markdown', body: string }`. For `rich`, `body` is editor HTML; for `markdown`, the Markdown source. Both are sanitized on the server (allowlist: p, br, hr, h2-h4, ul, ol, li, blockquote, pre, code, em, strong, del, a; https and mailto links only; no images). Stored HTML is safe to render with `dangerouslySetInnerHTML`. Resolved `@mentions` come out as `<span class="mention" data-mention="name">@name</span>`, so style `.mention` in CSS. Max 20,000 characters of text.
 
 Categories
-- `listCategories(deps)`: `{ id, slug, name, group, sort, threadCount }[]`, ordered `aletheia`, `projects`, `lab`. Also syncs categories from `packages/research-registry` (Aletheia plus one per other project). The `lab` group is empty: TODO, the lab has not decided any categories.
+- `listCategories(deps)`: `{ id, slug, name, group, sort, threadCount }[]`, ordered `aletheia`, `projects`, `lab`. Also syncs categories from `packages/research-registry` (Aletheia plus one per other project). The `lab` group is empty.
 
 Threads
 - `listThreads(deps, viewer, { categorySlug?, sort?: 'latest' | 'top' | 'unanswered', page?, pageSize? })`: `{ items: ThreadSummary[], total, page, pageSize }`. `latest` puts pinned first. Omit `categorySlug` for all discussions.
