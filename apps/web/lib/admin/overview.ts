@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, asc, count, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
-import { emailCampaigns, emailOutbox } from '@/lib/email/db/schema';
+import { emailCampaigns, emailOutbox, type EmailCampaign } from '@/lib/email/db/schema';
 import { feedbackSubmissions } from '@/lib/feedback/db/schema';
 import { betaApplications, licenses, testLicenses } from '@/lib/licensing/db/schema';
 import type { Db } from '@/lib/licensing/service';
@@ -32,7 +32,7 @@ export type Overview = {
   licensesExpiringSoon: number;
   liveTestLicenses: number;
   queue: QueueItem[];
-  lastCampaign: { subject: string; audience: string; sentAt: Date; status: 'sent' | 'failed' } | null;
+  lastCampaign: { subject: string; audience: string; sentAt: Date; status: EmailCampaign['status'] } | null;
 };
 
 const activeLicense = (now: Date) =>

@@ -41,19 +41,20 @@ describe('campaign HTML sanitize', () => {
 });
 
 describe('unsubscribe footer', () => {
-  it('is appended after the sanitized body, with the signed-link and Resend placeholders', () => {
+  it('is appended after the sanitized body, with the signed-link placeholder and our preferences page', () => {
     const html = buildEmailHtml('<p>Hello</p><script>x()</script>', 'https://astrealabs.com');
     expect(html.startsWith('<p>Hello</p>')).toBe(true);
     expect(html.endsWith(unsubscribeFooter('https://astrealabs.com'))).toBe(true);
-    expect(html).toContain('https://astrealabs.com/email/unsubscribe?t={{{contact.unsubscribe_token}}}');
-    expect(html).toContain('{{{RESEND_UNSUBSCRIBE_URL}}}');
+    expect(html).toContain('https://astrealabs.com/email/unsubscribe?t=%%UNSUBSCRIBE_TOKEN%%');
+    expect(html).toContain('href="https://astrealabs.com/account"');
+    expect(html).not.toContain('RESEND');
     expect(html).not.toContain('<script');
   });
 
   it('cannot be removed by the author and is filled for previews and test sends', () => {
     const html = buildEmailHtml('<p>No footer here</p>', 'https://astrealabs.com');
-    const filled = fillPlaceholders(html, { token: 'TOK', preferencesUrl: '#' });
+    const filled = fillPlaceholders(html, 'TOK');
     expect(filled).toContain('unsubscribe?t=TOK');
-    expect(filled).not.toContain('{{{');
+    expect(filled).not.toContain('%%');
   });
 });

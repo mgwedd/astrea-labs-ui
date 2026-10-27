@@ -1,106 +1,84 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const resend = vi.hoisted(() => ({
-  broadcastsCreate: vi.fn(),
-  emailsSend: vi.fn(),
-  contactsUpdate: vi.fn(),
-  contactsCreate: vi.fn(),
-  segmentsAdd: vi.fn(),
-  topicsUpdate: vi.fn(),
-}));
+const resend = vi.hoisted(() => ({ emailsSend: vi.fn(), batchSend: vi.fn(), verify: vi.fn() }));
 vi.mock('resend', () => ({
   Resend: class {
-    broadcasts = { create: resend.broadcastsCreate };
     emails = { send: resend.emailsSend };
-    contacts = {
-      update: resend.contactsUpdate,
-      create: resend.contactsCreate,
-      segments: { add: resend.segmentsAdd },
-      topics: { update: resend.topicsUpdate },
-    };
+    batch = { send: resend.batchSend };
+    webhooks = { verify: resend.verify };
   },
 }));
 
-import { sendBroadcast, sendTestEmail, syncContact } from '@/lib/email/campaigns';
+import { BATCH_LIMIT, sendBatch, sendTestEmail, verifyWebhook, type OutgoingEmail } from '@/lib/email/campaigns';
 
 beforeEach(() => {
   for (const fn of Object.values(resend)) fn.mockReset();
   vi.stubEnv('RESEND_API_KEY', 'k');
-  vi.stubEnv('RESEND_SEGMENT_ID', 'seg-1');
   vi.stubEnv('EMAIL_CAMPAIGN_FROM', 'Astrea <news@example.com>');
   vi.stubEnv('EMAIL_UNSUBSCRIBE_SECRET', 'test-secret-test-secret-test-secret-1234');
-  vi.stubEnv('RESEND_TOPIC_NEWS', 'topic-news');
-  vi.stubEnv('RESEND_TOPIC_PRODUCT_ALETHEIA', 'topic-aletheia');
-  vi.stubEnv('RESEND_TOPIC_PRODUCT_GROUNDWORK', 'topic-groundwork');
+  vi.stubEnv('RESEND_WEBHOOK_SECRET', 'whsec_test');
 });
 
-describe('sendBroadcast', () => {
-  it('targets only the lab news topic for the news audience', async () => {
-    resend.broadcastsCreate.mockResolvedValue({ data: { id: 'b1' }, error: null });
-    const r = await sendBroadcast({ audience: 'news', subject: 'S', html: '<p>x</p>' });
-    expect(r).toEqual({ ok: true, data: { id: 'b1' } });
-    expect(resend.broadcastsCreate).toHaveBeenCalledWith(expect.objectContaining({ topicId: 'topic-news', segmentId: 'seg-1', send: true }));
-  });
-
-  it('targets only that app topic for a product audience', async () => {
-    resend.broadcastsCreate.mockResolvedValue({ data: { id: 'b2' }, error: null });
-    await sendBroadcast({ audience: 'product:aletheia', subject: 'S', html: '<p>x</p>' });
-    expect(resend.broadcastsCreate).toHaveBeenCalledTimes(1);
-    expect(resend.broadcastsCreate.mock.calls[0][0].topicId).toBe('topic-aletheia');
-  });
-
-  it('returns an error instead of throwing when Resend fails or the topic is not configured', async () => {
-    resend.broadcastsCreate.mockResolvedValue({ data: null, error: { name: 'x', message: 'boom' } });
-    expect(await sendBroadcast({ audience: 'news', subject: 'S', html: 'h' })).toEqual({ ok: false, error: 'boom' });
-    vi.stubEnv('RESEND_TOPIC_NEWS', '');
-    expect((await sendBroadcast({ audience: 'news', subject: 'S', html: 'h' })).ok).toBe(false);
-  });
-});
+const email = (to: string): OutgoingEmail => ({ to, subject: 'S', html: '<p>x</p>', headers: { 'List-Unsubscribe': '<u>' }, campaignId: 'c1' });
 
 describe('sendTestEmail', () => {
-  it('sends one email, to the given address only, with one-click headers', async () => {
+  it('sends one email, to the given address only, with one-click headers and a filled link', async () => {
     resend.emailsSend.mockResolvedValue({ data: { id: 'e' }, error: null });
-    await sendTestEmail({ to: 'admin@example.com', subject: 'S', html: '<a href="x?t={{{contact.unsubscribe_token}}}">u</a>', siteUrl: 'https://astrealabs.com' });
+    await sendTestEmail({ to: 'admin@example.com', subject: 'S', html: '<a href="x?t=%%UNSUBSCRIBE_TOKEN%%">u</a>', siteUrl: 'https://astrealabs.com' });
     const args = resend.emailsSend.mock.calls[0][0];
     expect(args.to).toBe('admin@example.com');
+    expect(args.headers['List-Unsubscribe']).toMatch(/^<https:\/\/astrealabs\.com\/email\/unsubscribe\/one-click\?t=.+>$/);
     expect(args.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
-    expect(args.html).not.toContain('{{{');
-    expect(resend.broadcastsCreate).not.toHaveBeenCalled();
+    expect(args.html).not.toContain('%%');
   });
 });
 
-describe('syncContact', () => {
-  const base = { email: 'U@Example.com', productSlugs: ['aletheia'] };
-
-  it('opts in to the chosen topics and out of the rest', async () => {
-    resend.contactsUpdate.mockResolvedValue({ data: { id: 'c' }, error: null });
-    resend.segmentsAdd.mockResolvedValue({ data: {}, error: null });
-    resend.topicsUpdate.mockResolvedValue({ data: {}, error: null });
-    expect((await syncContact({ ...base, product: true, news: false })).ok).toBe(true);
-    const { email, topics } = resend.topicsUpdate.mock.calls[0][0];
-    expect(email).toBe('u@example.com');
-    expect(topics).toEqual(
-      expect.arrayContaining([
-        { id: 'topic-news', subscription: 'opt_out' },
-        { id: 'topic-aletheia', subscription: 'opt_in' },
-        { id: 'topic-groundwork', subscription: 'opt_out' },
-      ]),
-    );
+describe('sendBatch', () => {
+  it('sends each email with its own headers, a campaign tag, permissive validation and the idempotency key', async () => {
+    resend.batchSend.mockResolvedValue({ data: { data: [{ id: 'r1' }, { id: 'r2' }], errors: [] }, error: null });
+    const r = await sendBatch([email('a@example.com'), email('b@example.com')], 'key-1');
+    expect(r).toEqual({ ok: true, data: [{ id: 'r1' }, { id: 'r2' }] });
+    const [emails, opts] = resend.batchSend.mock.calls[0];
+    expect(emails[0]).toMatchObject({ from: 'Astrea <news@example.com>', to: 'a@example.com', headers: { 'List-Unsubscribe': '<u>' }, tags: [{ name: 'campaign', value: 'c1' }] });
+    expect(opts).toEqual({ batchValidation: 'permissive', idempotencyKey: 'key-1' });
   });
 
-  it('opts out of everything when both are off', async () => {
-    resend.contactsUpdate.mockResolvedValue({ data: { id: 'c' }, error: null });
-    resend.segmentsAdd.mockResolvedValue({ data: {}, error: null });
-    resend.topicsUpdate.mockResolvedValue({ data: {}, error: null });
-    await syncContact({ ...base, productSlugs: [], product: false, news: false });
-    expect(resend.topicsUpdate.mock.calls[0][0].topics.every((t: { subscription: string }) => t.subscription === 'opt_out')).toBe(true);
+  it('lines ids up with the accepted emails when some are refused', async () => {
+    resend.batchSend.mockResolvedValue({ data: { data: [{ id: 'r1' }, { id: 'r3' }], errors: [{ index: 1, message: 'bad address' }] }, error: null });
+    const r = await sendBatch([email('a@example.com'), email('bad'), email('c@example.com')], 'k');
+    expect(r).toEqual({ ok: true, data: [{ id: 'r1' }, { error: 'bad address' }, { id: 'r3' }] });
   });
 
-  it('creates the contact with its segment and topics when it does not exist', async () => {
-    resend.contactsUpdate.mockResolvedValue({ data: null, error: { name: 'not_found', message: 'nf' } });
-    resend.contactsCreate.mockResolvedValue({ data: { id: 'c' }, error: null });
-    expect((await syncContact({ ...base, product: false, news: true })).ok).toBe(true);
-    expect(resend.contactsCreate.mock.calls[0][0]).toMatchObject({ email: 'u@example.com', segments: [{ id: 'seg-1' }] });
-    expect(resend.topicsUpdate).not.toHaveBeenCalled();
+  it('keeps ids out when the reply does not line up, rather than pin one to the wrong row', async () => {
+    resend.batchSend.mockResolvedValue({ data: { data: [{ id: 'r1' }], errors: [] }, error: null });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await sendBatch([email('a@example.com'), email('b@example.com')], 'k');
+    expect(r).toEqual({ ok: true, data: [{ id: null }, { id: null }] });
+  });
+
+  it('fails the whole batch on a request error, and refuses more than the limit', async () => {
+    resend.batchSend.mockResolvedValue({ data: null, error: { name: 'rate_limit_exceeded', message: 'slow down' } });
+    expect(await sendBatch([email('a@example.com')], 'k')).toEqual({ ok: false, error: 'slow down' });
+    const tooMany = Array.from({ length: BATCH_LIMIT + 1 }, (_, i) => email(`u${i}@example.com`));
+    expect((await sendBatch(tooMany, 'k')).ok).toBe(false);
+    expect(resend.batchSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('verifyWebhook', () => {
+  const headers = (h: Record<string, string>) => new Headers(h);
+
+  it('checks the signature with the webhook secret', () => {
+    resend.verify.mockReturnValue({ type: 'email.delivered' });
+    const event = verifyWebhook('{"x":1}', headers({ 'svix-id': 'i', 'svix-timestamp': 't', 'svix-signature': 's' }));
+    expect(event).toEqual({ type: 'email.delivered' });
+    expect(resend.verify).toHaveBeenCalledWith({ payload: '{"x":1}', headers: { id: 'i', timestamp: 't', signature: 's' }, webhookSecret: 'whsec_test' });
+  });
+
+  it('throws when signature headers are missing or the secret is unset', () => {
+    expect(() => verifyWebhook('{}', headers({}))).toThrow();
+    vi.stubEnv('RESEND_WEBHOOK_SECRET', '');
+    expect(() => verifyWebhook('{}', headers({ 'svix-id': 'i', 'svix-timestamp': 't', 'svix-signature': 's' }))).toThrow();
+    expect(resend.verify).not.toHaveBeenCalled();
   });
 });
