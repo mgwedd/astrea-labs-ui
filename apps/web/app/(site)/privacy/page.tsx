@@ -41,8 +41,8 @@ export default function PrivacyPage() {
             license ID, its dates and any revocation. We do not store the key itself.
           </li>
           <li>
-            A log of the emails we send (address, subject, type and time). Emails that contain a single-use link are
-            logged without their content.
+            A log of the emails we send (address, subject, type and time). Emails that contain a single-use link or your
+            application answers are logged without their content.
           </li>
           <li>
             A session cookie, <code>beta_session</code>, while you sign or open your key link. It lasts one to two hours.
@@ -57,7 +57,17 @@ export default function PrivacyPage() {
         <ul>
           <li>
             Optional account: sign-in runs on Auth0 with a one-time code by email. We store your email, your Auth0 ID
-            and your email preferences.
+            and your email preferences. Auth0 sets a session cookie while you are signed in.
+          </li>
+          <li>
+            Account invites: when we approve an application we email an invite to create an account. We store the
+            invited email, the application it belongs to, a hash of the invite token, its expiry and when it was used.
+          </li>
+          <li>
+            Forum profile: your email (visible to staff only), username, handle and display setting, with your Auth0 ID.
+          </li>
+          <li>
+            Release and campaign emails: only if you opt in, we send lab news or product and release updates. We keep your opt-in choices and the time you made them, and a log of campaign sends.
           </li>
           <li>
             Feedback: the email and report you submit. We email you a confirmation link and review each report before it
@@ -78,7 +88,7 @@ export default function PrivacyPage() {
         <ul>
           <li>Vercel: hosting, private file storage for signed documents, the keys that seal them, Web Analytics and BotID.</li>
           <li>Neon: the database.</li>
-          <li>Resend: sending email.</li>
+          <li>Resend: sending email. Resend also keeps its own log of mail it sends, under its own retention policy.</li>
           <li>Auth0: optional account sign-in.</li>
           <li>GitHub: feedback reports that you submit and we approve.</li>
         </ul>
@@ -86,16 +96,17 @@ export default function PrivacyPage() {
 
         <h2>How long we keep it</h2>
         <ul>
-          <li>Unsigned applications: deleted after {DRAFT_RETENTION_DAYS} days.</li>
+          <li>Unsigned applications: deleted after about {DRAFT_RETENTION_DAYS} days.</li>
           <li>
-            Signed applications, our review, license records and signing evidence: for the term of the license and six
-            years after it ends. If an application is declined, for six years from the decision. These records are
-            append-only: they are never edited, a correction is added as a new record, and we cannot delete them on
-            request during that period.
+            Signed applications, our review, license records and signing evidence: for at least the term of the license
+            plus six years. If an application is declined, for at least six years from the decision. Nothing deletes
+            them automatically. The signed documents, review decisions and acceptance records are locked in the
+            database against edits and deletion: a correction is added as a new record, and we cannot delete them on
+            request during that period. We also use them to check any later application from you.
           </li>
-          <li>Email log: deleted after {EMAIL_LOG_RETENTION_DAYS} days.</li>
+          <li>Email log, including failed sends: deleted after about {EMAIL_LOG_RETENTION_DAYS} days.</li>
           <li>
-            Feedback you did not confirm: deleted after 7 days. Confirmed reports are kept until we remove them; a
+            Feedback you did not confirm: deleted after about 7 days. Confirmed reports are kept until we remove them; a
             published GitHub issue stays on GitHub.
           </li>
           <li>Account, email preferences and forum content: until you ask us to delete them.</li>
@@ -104,7 +115,7 @@ export default function PrivacyPage() {
         <h2>Your rights and contact</h2>
         <p>
           You can ask us for a copy of your data, for corrections, or for deletion of anything not covered by the
-          retention period above, and you can unsubscribe from any email. Write to{' '}
+          retention period above, and you can unsubscribe from release and campaign emails. Emails about your application, key and account are sent only as needed. Write to{' '}
           <a href={`mailto:${CONTACT}`}>{CONTACT}</a>.
         </p>
       </div>

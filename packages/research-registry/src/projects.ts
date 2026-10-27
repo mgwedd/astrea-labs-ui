@@ -36,7 +36,7 @@ export const projects: Project[] = [
         platform: 'macos',
         label: 'Download for macOS',
         url: gh('mgwedd/aletheia', '/releases/latest'),
-        note: 'macOS 14+ · Apple Silicon with 16 GB recommended · about 3 to 8 GB of disk for models',
+        note: 'macOS 14+ · Apple Silicon with 16 GB recommended · about 3 to 8 GB of free disk including models',
       },
     ],
     beta: {

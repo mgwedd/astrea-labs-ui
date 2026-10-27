@@ -336,7 +336,7 @@ describe('sign', () => {
     expect(review.text).toContain('Doe Therapy');
     expect(review.text).toContain(app.id);
     for (const m of sent) expect(Object.keys(m).filter((k) => k !== 'secret').sort()).toEqual(['html', 'subject', 'text', 'to']);
-    expect(sent.filter((m) => m.secret).map((m) => m.subject)).toEqual([sent[0].subject]);
+    expect(sent.every((m) => m.secret === true)).toBe(true);
     expect((await deps.db.select().from(emailSends)).map((e) => e.kind)).toEqual(['sign-link', 'received']);
 
     // The session now serves the signed copy, checked against its hash.
@@ -746,7 +746,7 @@ describe('cleanupDrafts', () => {
 });
 
 describe('cleanupEmailLogs', () => {
-  it('deletes send and finished outbox rows older than the retention period, and keeps failed mail', async () => {
+  it('deletes send and outbox rows older than the retention period, whatever their status', async () => {
     const old = new Date(clock.getTime() - (EMAIL_LOG_RETENTION_DAYS + 1) * DAY);
     const recent = new Date(clock.getTime() - (EMAIL_LOG_RETENTION_DAYS - 1) * DAY);
     await deps.db.insert(emailSends).values([
@@ -760,9 +760,9 @@ describe('cleanupEmailLogs', () => {
       row('old-failed@example.com', 'failed', old),
       row('new-sent@example.com', 'sent', recent),
     ]);
-    expect(await cleanupEmailLogs(deps)).toEqual({ sends: 1, outbox: 2 });
+    expect(await cleanupEmailLogs(deps)).toEqual({ sends: 1, outbox: 3 });
     expect((await deps.db.select().from(emailSends)).map((r) => r.email)).toEqual(['new@example.com']);
-    expect((await deps.db.select().from(emailOutbox)).map((r) => r.to).sort()).toEqual(['new-sent@example.com', 'old-failed@example.com']);
+    expect((await deps.db.select().from(emailOutbox)).map((r) => r.to).sort()).toEqual(['new-sent@example.com']);
   });
 });
 

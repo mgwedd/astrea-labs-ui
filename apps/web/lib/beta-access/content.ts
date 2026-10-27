@@ -108,7 +108,7 @@ export const DISCLOSURES: Block[] = [
   {
     id: "B8",
     title: "Support without patient information.",
-    text: "Never send us recordings, transcripts, notes, database files, screenshots that show client details, or unredacted logs. Use the app's redacted Doctor report. If we receive patient information by mistake, we will delete it as far as we're able and tell you.",
+    text: "Never send us recordings, transcripts, notes, database files, screenshots that show client details, or unredacted logs. Use the app's redacted Doctor report. If we receive patient information by mistake, we will delete it where we're able and tell you. Text you type into an application is part of the signed record and can't be deleted, so keep it out of the free-text boxes.",
   },
 ];
 

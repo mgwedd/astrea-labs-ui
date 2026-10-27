@@ -29,7 +29,7 @@ export default async function AletheiaDownloadPage() {
         <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-muted-foreground">
           <li>macOS 14 or later</li>
           <li>Apple Silicon with 16 GB of memory recommended; Intel Macs work with smaller, slower models</li>
-          <li>About 3 to 8 GB of free disk space for the AI models</li>
+          <li>About 3 to 8 GB of free disk space, including the AI models</li>
           <li>A free beta license key, issued after review</li>
         </ul>
       </section>

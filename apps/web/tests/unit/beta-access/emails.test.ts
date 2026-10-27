@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/beta-access/answers', () => ({ describeAnswers: () => [] }));
 
-import { declineEmail, reviewEmail, signLinkEmail } from '@/lib/beta-access/emails';
+import { declineEmail, receivedEmail, reviewEmail, signLinkEmail } from '@/lib/beta-access/emails';
 import { accountInviteEmail } from '@/lib/accounts/invites';
 import { confirmationEmail } from '@/lib/feedback/email';
 
@@ -12,6 +12,11 @@ describe('beta emails', () => {
     expect(signLinkEmail({ url: 'https://x/t', expiresAt: at, resume: false }).secret).toBe(true);
     expect(accountInviteEmail({ url: 'https://x/t', expiresAt: at }).secret).toBe(true);
     expect(confirmationEmail({ confirmUrl: 'https://x/t', projectSlug: 'aletheia', title: 't', type: 'bug' }).secret).toBe(true);
+  });
+
+  it('marks the received and decline mails secret', () => {
+    expect(receivedEmail().secret).toBe(true);
+    expect(declineEmail({ reapplyAfter: new Date('2027-02-01T00:00:00Z') }).secret).toBe(true);
   });
 
   it('decline email says what is kept and does not promise deletion', () => {
@@ -28,5 +33,6 @@ describe('beta emails', () => {
     const mail = reviewEmail({ application, document, siteUrl: 'https://astrealabs.com' });
     expect(mail.text).toContain('https://astrealabs.com/admin/applications/app-1');
     expect(mail.html).toContain('https://astrealabs.com/admin/applications/app-1');
+    expect(mail.secret).toBe(true);
   });
 });

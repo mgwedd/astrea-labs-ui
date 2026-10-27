@@ -1,6 +1,6 @@
 // Beta access emails. Same style as lib/licensing/email.ts: plain text first,
-// the HTML part mirrors it. No email carries a license key or a PDF. The sign-link
-// email is marked secret so its link is never stored in the email log.
+// the HTML part mirrors it. No email carries a license key or a PDF. Emails that carry
+// a link or applicant answers are marked secret, so the email log never stores their content.
 import { escapeHtml, type Mail } from '../licensing/email';
 import type { BetaApplication, ConsentRecord, SignedDocument } from '../licensing/db/schema';
 import { describeAnswers, type Answers } from './answers';
@@ -35,7 +35,7 @@ export function receivedEmail(): Omit<Mail, 'to'> {
   const text = [intro, '', note, '', '— Astrea Labs'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(note)}</p>`);
-  return { subject: 'We received your Aletheia beta application', text, html };
+  return { subject: 'We received your Aletheia beta application', text, html, secret: true };
 }
 
 /** Where applicants send questions about their application record. */
@@ -47,14 +47,14 @@ export function declineEmail(input: { reapplyAfter: Date }): Omit<Mail, 'to'> {
     "Thank you for applying for the Aletheia beta. We aren't able to offer you a place in the beta at this time.";
   const reapply = `You can apply again from ${longDate(input.reapplyAfter)}.`;
   const kept =
-    'We keep your signed application and our decision for six years, as the record of what you were told and agreed to and of our review. We use it for nothing else.';
+    'We keep your signed application and our decision for six years, as the record of what you were told and agreed to and of our review. We use it only for that and to check any later application from you.';
   const questions = `Questions about your record: ${SUPPORT_EMAIL}.`;
   const text = [intro, '', reapply, '', kept, '', questions, '', '— Astrea Labs'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(reapply)}</p>
 <p>${escapeHtml(kept)}</p>
 <p>Questions about your record: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>`);
-  return { subject: 'Your Aletheia beta application', text, html };
+  return { subject: 'Your Aletheia beta application', text, html, secret: true };
 }
 
 /**
@@ -113,5 +113,5 @@ export function reviewEmail(input: {
 </body></html>`;
 
   // The subject carries no personal data: mail clients show it in notifications.
-  return { subject: 'New Aletheia beta application to review', text, html };
+  return { subject: 'New Aletheia beta application to review', text, html, secret: true };
 }

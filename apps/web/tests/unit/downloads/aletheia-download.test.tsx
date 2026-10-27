@@ -57,7 +57,7 @@ describe('/aletheia/download', () => {
     const reqs = within(screen.getByRole('region', { name: 'Requirements' }));
     expect(reqs.getByText('macOS 14 or later')).toBeInTheDocument();
     expect(reqs.getByText(/Apple Silicon with 16 GB/)).toBeInTheDocument();
-    expect(reqs.getByText(/3 to 8 GB of free disk/)).toBeInTheDocument();
+    expect(reqs.getByText(/3 to 8 GB of free disk space, including the AI models/)).toBeInTheDocument();
   });
 
   it('falls back to the registry download links when there is no release', async () => {

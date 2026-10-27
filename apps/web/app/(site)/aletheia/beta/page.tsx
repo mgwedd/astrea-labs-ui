@@ -49,7 +49,7 @@ export default function AletheiaBetaPage() {
           </ol>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <span>Applying doesn&apos;t guarantee access. A key is issued only after review.</span>
-            <InfoTip label="requirements">You&apos;ll need a Mac on macOS 14 or later. Apple silicon with 16 GB of memory is recommended; Intel Macs work with smaller, slower models. Allow about 3 to 8 GB of disk space for the AI models.</InfoTip>
+            <InfoTip label="requirements">You&apos;ll need a Mac on macOS 14 or later. Apple silicon with 16 GB of memory is recommended; Intel Macs work with smaller, slower models. Allow about 3 to 8 GB of free disk space, including the AI models.</InfoTip>
           </p>
           <Button size="lg" className="self-start" asChild>
             <Link href="/aletheia/beta/apply">

@@ -39,7 +39,7 @@ export function ApplicantPrivacyNotice() {
           </li>
           <li>
             A log of the emails we send you (address, subject, type and time), so we can limit repeat requests and see
-            failed sends. Emails that contain a single-use link are logged without their content.
+            failed sends. Emails that contain a single-use link or your application answers are logged without their content.
           </li>
           <li>
             A session cookie (<code>beta_session</code>) while you sign or open your key link. It is needed for the
@@ -75,14 +75,16 @@ export function ApplicantPrivacyNotice() {
       <div className="flex flex-col gap-2">
         <h3 className="font-medium text-foreground">How long</h3>
         <ul className="flex list-disc flex-col gap-1.5 pl-5">
-          <li>Unsigned drafts are deleted after {DRAFT_RETENTION_DAYS} days.</li>
+          <li>Unsigned drafts are deleted after about {DRAFT_RETENTION_DAYS} days.</li>
           <li>
-            Signed applications, our review, license records and the signing evidence are kept for the term of the
-            license and six years after it ends. If you&apos;re declined, they&apos;re kept for six years from our
-            decision. They&apos;re never edited; a correction is added as a new record, and we can&apos;t remove them
-            on request during that time.
+            Signed applications, our review, license records and the signing evidence are kept for at least the
+            term of the license plus six years. If you&apos;re declined, they&apos;re kept for at least six years
+            from our decision. Nothing deletes them automatically. The signed documents, review decisions and
+            acceptance records are locked in the database against edits and deletion; a correction is added as a new
+            record, and we can&apos;t remove them on request during that time.
+            We also use the record to check any later application from you.
           </li>
-          <li>The email log is deleted after {EMAIL_LOG_RETENTION_DAYS} days.</li>
+          <li>The email log, including any failed sends, is deleted after about {EMAIL_LOG_RETENTION_DAYS} days. Resend keeps its own log of mail it sends, under its retention policy.</li>
         </ul>
       </div>
 

@@ -920,17 +920,17 @@ export async function cleanupDrafts(deps: BetaDeps, limit = 500): Promise<{ dele
 }
 
 /**
- * Daily: delete email log rows older than EMAIL_LOG_RETENTION_DAYS. The logs hold
- * only addresses, subjects and send times (bodies are kept only for failed mail
- * without a secret link) and exist for rate limits and for finding failed sends.
- * Failed outbox rows still waiting for an admin are kept.
+ * Daily: delete email log rows older than EMAIL_LOG_RETENTION_DAYS, whatever their
+ * status. The logs hold addresses, subjects and send times, and exist for rate limits
+ * and for finding failed sends. Bodies are kept only for failed mail that is not
+ * marked secret, and go with the row.
  */
 export async function cleanupEmailLogs(deps: BetaDeps): Promise<{ sends: number; outbox: number }> {
   const cutoff = new Date(nowOf(deps).getTime() - EMAIL_LOG_RETENTION_DAYS * DAY);
   const sends = await deps.db.delete(emailSends).where(lt(emailSends.sentAt, cutoff)).returning({ id: emailSends.id });
   const outbox = await deps.db
     .delete(emailOutbox)
-    .where(and(lt(emailOutbox.createdAt, cutoff), inArray(emailOutbox.status, ['sent', 'dismissed'])))
+    .where(lt(emailOutbox.createdAt, cutoff))
     .returning({ id: emailOutbox.id });
   return { sends: sends.length, outbox: outbox.length };
 }
