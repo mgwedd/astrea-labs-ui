@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bookmark, ChevronRight, Menu, MessageSquare, PenLine, Settings } from 'lucide-react';
+import { Bookmark, Bug, ChevronRight, Menu, MessageSquare, PenLine, Settings } from 'lucide-react';
 import {
   Button,
   Collapsible,
@@ -86,6 +86,10 @@ function ForumNav({ categories, sheet }: { categories: Category[]; sheet?: boole
         <NavLink href="/forum" active={pathname === '/forum'} onNavigate={sheet}>
           <MessageSquare className="size-4" aria-hidden />
           All threads
+        </NavLink>
+        <NavLink href="/forum/reports" active={pathname === '/forum/reports'} onNavigate={sheet}>
+          <Bug className="size-4" aria-hidden />
+          Bugs and requests
         </NavLink>
         <NavLink href="/forum/bookmarks" active={pathname === '/forum/bookmarks'} onNavigate={sheet}>
           <Bookmark className="size-4" aria-hidden />

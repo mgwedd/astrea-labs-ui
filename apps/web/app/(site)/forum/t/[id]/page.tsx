@@ -5,6 +5,7 @@ import { plainText } from '@/lib/forum/content';
 import { fullDate, relativeTime } from '@/lib/forum/format';
 import { requireForumMember } from '@/lib/forum/gate';
 import { forumDeps } from '@/lib/forum/server';
+import { isReportKind } from '@/lib/forum/reports';
 import { getOwnProfile, getThread, recordView, REACTION_EMOJI } from '@/lib/forum/service';
 
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,19 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     replyBlocked,
     username: profile.username,
     emoji: [...REACTION_EMOJI],
+    kind: t.kind,
+    report:
+      isReportKind(t.kind) && t.status
+        ? {
+            kind: t.kind,
+            status: t.status,
+            voteCount: t.voteCount,
+            voted: t.voted,
+            mine: t.author.mine,
+            duplicateOf: t.duplicateOf,
+            events: t.statusEvents.map((e) => ({ id: e.id, from: e.from, to: e.to, actorName: e.actorName, note: e.note, ...when(e.createdAt) })),
+          }
+        : null,
   };
   return <ThreadView thread={vm} />;
 }
