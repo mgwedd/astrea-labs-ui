@@ -111,9 +111,8 @@ describe('stampAndCertify', () => {
 // Fixed at terms version 2026-10-24, which C1 names.
 describe('Aletheia PDF output', () => {
   it('is unchanged byte for byte', async () => {
-    const withC11 = { ...ticked, C11: new Date(Date.UTC(2026, 9, 23, 14, 2, 11)).toISOString() };
-    const u = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(withC11, '2026-10-24'), createdAt });
-    expect(sha256Hex(u.bytes)).toBe('825bb61b33eb0671c107996a71774d29e70c15ed1e6d51679047974847f0b7f9');
+    const u = await buildUnsignedPdf(ALETHEIA_BETA, { applicationId, details, consents: consentRecords(ticked, '2026-10-24'), createdAt });
+    expect(sha256Hex(u.bytes)).toBe('c0c5a491088c399384ac477a7fab4f93ccd6221ee24f67d4a22d2b663ff6e678');
     expect(u.signatureBlock).toEqual({
       page: 4,
       name: { x: 62, y: 334.67 },
@@ -138,6 +137,6 @@ describe('Aletheia PDF output', () => {
         signerUa: 'UA',
       },
     });
-    expect(sha256Hex(signed)).toBe('ef658194cf51d649006b9deea54f112e0dfc58267526311b0649c1122c1fec89');
+    expect(sha256Hex(signed)).toBe('4c63b8ac4d8603d6f42f70d0437c2c3561af08e727ca2553d6dca860d6059b9d');
   });
 });

@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
     '/aletheia/beta/**': pdfFonts,
   },
   experimental: { authInterrupts: true },
+  async redirects() {
+    return [{ source: '/writing/aletheia-public-beta', destination: '/writing/aletheia-private-beta', permanent: true }];
+  },
   transpilePackages: ['@astrea/ui', '@astrea/research-registry'],
   images: {
     formats: ['image/avif', 'image/webp'],

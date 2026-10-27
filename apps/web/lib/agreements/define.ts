@@ -3,7 +3,8 @@
 //   accept: terms text + version, one or more unticked boxes, an accept button.
 //           Evidence row, no PDF.
 //   signed: adds consent to electronic records, a typed-name signature and a
-//           sealed PDF emailed to the signer. `signingConsent` is the box ticked
+//           sealed PDF stored privately; the
+//           signer downloads it from the site. `signingConsent` is the box ticked
 //           at the signature step; `document` lays out the PDF. The PDF, seal
 //           and evidence row come from lib/agreements/signed.
 //

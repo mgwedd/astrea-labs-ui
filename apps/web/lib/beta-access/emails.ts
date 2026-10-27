@@ -1,5 +1,6 @@
 // Beta access emails. Same style as lib/licensing/email.ts: plain text first,
-// the HTML part mirrors it. No email carries a license key or a PDF.
+// the HTML part mirrors it. No email carries a license key or a PDF. Emails that carry
+// a link or applicant answers are marked secret, so the email log never stores their content.
 import { escapeHtml, type Mail } from '../licensing/email';
 import type { BetaApplication, ConsentRecord, SignedDocument } from '../licensing/db/schema';
 import { describeAnswers, type Answers } from './answers';
@@ -23,7 +24,7 @@ export function signLinkEmail(input: { url: string; expiresAt: Date; resume: boo
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p><a href="${escapeHtml(input.url)}">Review and sign my application</a></p>
 <p>${escapeHtml(note)}</p>`);
-  return { subject: 'Confirm your email to sign your Aletheia beta application', text, html };
+  return { subject: 'Confirm your email to sign your Aletheia beta application', text, html, secret: true };
 }
 
 /** Sent to the applicant once the signed application is stored. */
@@ -34,29 +35,32 @@ export function receivedEmail(): Omit<Mail, 'to'> {
   const text = [intro, '', note, '', '— Astrea Labs'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(note)}</p>`);
-  return { subject: 'We received your Aletheia beta application', text, html };
+  return { subject: 'We received your Aletheia beta application', text, html, secret: true };
 }
 
-/** Where applicants ask for their application record to be deleted. */
-export const DELETION_EMAIL = 'support@astrealabs.com';
+/** Where applicants send questions about their application record. */
+export const SUPPORT_EMAIL = 'support@astrealabs.com';
 
-/** A short, neutral decline, with when to reapply and how to ask for deletion. */
+/** A short, neutral decline, with when to reapply and what we keep. */
 export function declineEmail(input: { reapplyAfter: Date }): Omit<Mail, 'to'> {
   const intro =
     "Thank you for applying for the Aletheia beta. We aren't able to offer you a place in the beta at this time.";
   const reapply = `You can apply again from ${longDate(input.reapplyAfter)}.`;
-  const deletion = `To ask us to delete your application record, email ${DELETION_EMAIL}.`;
-  const text = [intro, '', reapply, '', deletion, '', '— Astrea Labs'].join('\n');
+  const kept =
+    'We keep your signed application and our decision for six years, as the record of what you were told and agreed to and of our review. We use it only for that and to check any later application from you.';
+  const questions = `Questions about your record: ${SUPPORT_EMAIL}.`;
+  const text = [intro, '', reapply, '', kept, '', questions, '', '— Astrea Labs'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(reapply)}</p>
-<p>To ask us to delete your application record, email <a href="mailto:${DELETION_EMAIL}">${DELETION_EMAIL}</a>.</p>`);
-  return { subject: 'Your Aletheia beta application', text, html };
+<p>${escapeHtml(kept)}</p>
+<p>Questions about your record: <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>`);
+  return { subject: 'Your Aletheia beta application', text, html, secret: true };
 }
 
 /**
  * The review email to BETA_REVIEW_EMAIL: every answer and consent, plus the
- * ids to approve or decline with. No PDF attached; the signed copy stays in
- * Blob and is reachable through the admin API.
+ * link to approve or decline in the admin page. No PDF attached; the signed copy
+ * stays in Blob and is reachable from that page.
  */
 export function reviewEmail(input: {
   application: BetaApplication;
@@ -65,7 +69,7 @@ export function reviewEmail(input: {
 }): Omit<Mail, 'to'> {
   const { application: app, document: doc } = input;
   const answers = describeAnswers(app.answers as Answers);
-  // The ticked boxes: B0 and C1..C12 (an unticked C11 has no tick time).
+  // The ticked boxes: B0 and C1..C12.
   const consents = doc.blocks.filter((b: ConsentRecord) => b.tickedAt && (b.id === 'B0' || b.id.startsWith('C')));
   const facts: [string, string][] = [
     ['Application', app.id],
@@ -79,8 +83,8 @@ export function reviewEmail(input: {
   ];
   const answerLines = answers.map((a) => `${a.id}. ${a.label}: ${a.value || '(blank)'}`);
   const consentLines = consents.map((c) => `${c.id} ticked ${c.tickedAt}`);
-  const admin = `${input.siteUrl}/api/licenses/admin`;
-  const how = `Approve or decline with POST ${admin} (Bearer LICENSE_ADMIN_TOKEN), action "approve" or "decline", applicationId ${app.id}.`;
+  const reviewUrl = `${input.siteUrl}/admin/applications/${app.id}`;
+  const how = `Review, approve or decline: ${reviewUrl}`;
 
   const text = [
     'A new Aletheia beta application is signed and waiting for review.',
@@ -105,9 +109,9 @@ export function reviewEmail(input: {
 <table style="border-collapse:collapse;font-size:14px">${answers.map((a) => row(`${a.id}. ${a.label}`, a.value || '(blank)')).join('')}</table>
 <h3>Consents</h3>
 <table style="border-collapse:collapse;font-size:14px">${consents.map((c) => row(c.id, `ticked ${c.tickedAt}`)).join('')}</table>
-<p>${escapeHtml(how)}</p>
+<p>Review, approve or decline: <a href="${escapeHtml(reviewUrl)}">${escapeHtml(reviewUrl)}</a></p>
 </body></html>`;
 
   // The subject carries no personal data: mail clients show it in notifications.
-  return { subject: 'New Aletheia beta application to review', text, html };
+  return { subject: 'New Aletheia beta application to review', text, html, secret: true };
 }

@@ -48,7 +48,7 @@ describe('/aletheia/download', () => {
     getLatestRelease.mockResolvedValue(release);
     render(await AletheiaDownloadPage());
     expect(screen.getByText(/needs a free beta license/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Get one by email/ })).toHaveAttribute('href', '/aletheia/beta');
+    expect(screen.getByRole('link', { name: /Apply for a free beta license/ })).toHaveAttribute('href', '/aletheia/beta');
   });
 
   it('lists requirements', async () => {
@@ -57,6 +57,7 @@ describe('/aletheia/download', () => {
     const reqs = within(screen.getByRole('region', { name: 'Requirements' }));
     expect(reqs.getByText('macOS 14 or later')).toBeInTheDocument();
     expect(reqs.getByText(/Apple Silicon with 16 GB/)).toBeInTheDocument();
+    expect(reqs.getByText(/3 to 8 GB of free disk space, including the AI models/)).toBeInTheDocument();
   });
 
   it('falls back to the registry download links when there is no release', async () => {
@@ -65,7 +66,7 @@ describe('/aletheia/download', () => {
     const fallback = getProject('aletheia')!.downloads![0];
     expect(screen.getByRole('link', { name: new RegExp(fallback.label) })).toHaveAttribute('href', fallback.url);
     expect(screen.queryByText(/Release notes/)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Get one by email/ })).toHaveAttribute('href', '/aletheia/beta');
+    expect(screen.getByRole('link', { name: /Apply for a free beta license/ })).toHaveAttribute('href', '/aletheia/beta');
   });
 
   it('has metadata and the same revalidate as /downloads', () => {
@@ -80,7 +81,7 @@ describe('/downloads', () => {
     getLatestRelease.mockResolvedValue(null);
     render(await DownloadsPage());
     expect(screen.getByRole('link', { name: 'Aletheia' })).toHaveAttribute('href', '/projects/aletheia');
-    expect(screen.getByRole('link', { name: /Get one by email/ })).toHaveAttribute('href', '/aletheia/beta');
+    expect(screen.getByRole('link', { name: /Apply for a free beta license/ })).toHaveAttribute('href', '/aletheia/beta');
   });
 });
 

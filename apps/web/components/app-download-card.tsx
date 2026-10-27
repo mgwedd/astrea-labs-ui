@@ -72,9 +72,9 @@ export function AppDownloadCard({ project: p, release }: { project: Project; rel
         )}
         {p.slug === 'aletheia' && (
           <p className="text-sm text-muted-foreground">
-            Aletheia needs a free beta license.{' '}
+            Aletheia needs a free beta license key before first use.{' '}
             <Link href="/aletheia/beta" className="underline underline-offset-4 hover:text-foreground">
-              Get one by email
+              Apply for a free beta license
             </Link>
             .
           </p>

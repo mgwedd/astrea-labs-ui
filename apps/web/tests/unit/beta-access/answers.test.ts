@@ -87,9 +87,9 @@ describe("applicationInputSchema", () => {
   const now = "2026-10-23T12:00:00.000Z";
   const consents = Object.fromEntries(REQUIRED_AT_APPLY.map((id) => [id, now]));
 
-  it("accepts all required, with or without C11", () => {
+  it("accepts all required", () => {
     expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents }).success).toBe(true);
-    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: { ...consents, C11: now } }).success).toBe(true);
+    expect(applicationInputSchema.safeParse({ legalVersion: "2026-10-24", answers: valid, consents: { ...consents, C11: now } }).success).toBe(false);
   });
 
   it("rejects a missing required consent", () => {
