@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, asc, count, desc, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
-import { emailCampaigns } from '@/lib/email/db/schema';
+import { emailCampaigns, emailOutbox } from '@/lib/email/db/schema';
 import { feedbackSubmissions } from '@/lib/feedback/db/schema';
 import { betaApplications, licenses, testLicenses } from '@/lib/licensing/db/schema';
 import type { Db } from '@/lib/licensing/service';
@@ -14,7 +14,7 @@ const LIST_LIMIT = 5;
 type Deps = { db: Db; now?: () => Date };
 
 export type QueueItem = {
-  kind: 'application' | 'feedback' | 'license';
+  kind: 'application' | 'feedback' | 'license' | 'email';
   id: string;
   title: string;
   meta: string;
@@ -27,6 +27,7 @@ export type Overview = {
   applicationsToReview: number;
   feedbackToReview: number;
   feedbackFlagged: number;
+  emailsFailed: number;
   activeLicenses: number;
   licensesExpiringSoon: number;
   liveTestLicenses: number;
@@ -38,12 +39,13 @@ const activeLicense = (now: Date) =>
   and(isNull(licenses.revokedAt), isNull(licenses.replacedBy), or(isNull(licenses.expiresAt), gt(licenses.expiresAt, now)));
 
 /** Counts for the sidebar badges. */
-export async function getNavCounts({ db }: Deps): Promise<{ applications: number; feedback: number }> {
-  const [[a], [f]] = await Promise.all([
+export async function getNavCounts({ db }: Deps): Promise<{ applications: number; feedback: number; emails: number }> {
+  const [[a], [f], [e]] = await Promise.all([
     db.select({ n: count() }).from(betaApplications).where(eq(betaApplications.status, 'submitted')),
     db.select({ n: count() }).from(feedbackSubmissions).where(eq(feedbackSubmissions.status, 'pending_review')),
+    db.select({ n: count() }).from(emailOutbox).where(eq(emailOutbox.status, 'failed')),
   ]);
-  return { applications: a?.n ?? 0, feedback: f?.n ?? 0 };
+  return { applications: a?.n ?? 0, feedback: f?.n ?? 0, emails: e?.n ?? 0 };
 }
 
 export async function getOverview(deps: Deps): Promise<Overview> {
@@ -51,7 +53,7 @@ export async function getOverview(deps: Deps): Promise<Overview> {
   const now = deps.now?.() ?? new Date();
   const soon = new Date(now.getTime() + EXPIRY_WINDOW_DAYS * DAY);
 
-  const [[apps], [fb], [flagged], [active], [expiring], [liveTests], appRows, fbRows, expiringRows, [campaign]] = await Promise.all([
+  const [[apps], [fb], [flagged], [active], [expiring], [liveTests], appRows, fbRows, expiringRows, [campaign], [emailsFailed], failedRows] = await Promise.all([
     db.select({ n: count() }).from(betaApplications).where(eq(betaApplications.status, 'submitted')),
     db.select({ n: count() }).from(feedbackSubmissions).where(eq(feedbackSubmissions.status, 'pending_review')),
     db
@@ -104,9 +106,25 @@ export async function getOverview(deps: Deps): Promise<Overview> {
       .from(emailCampaigns)
       .orderBy(desc(emailCampaigns.sentAt))
       .limit(1),
+    db.select({ n: count() }).from(emailOutbox).where(eq(emailOutbox.status, 'failed')),
+    db
+      .select({ id: emailOutbox.id, to: emailOutbox.to, subject: emailOutbox.subject, error: emailOutbox.error, at: emailOutbox.lastAttemptAt })
+      .from(emailOutbox)
+      .where(eq(emailOutbox.status, 'failed'))
+      .orderBy(asc(emailOutbox.lastAttemptAt))
+      .limit(LIST_LIMIT),
   ]);
 
   const queue: QueueItem[] = [
+    ...failedRows.map((r): QueueItem => ({
+      kind: 'email',
+      id: r.id,
+      title: r.to,
+      meta: `Not sent: ${r.subject}`,
+      href: '/admin/emails',
+      at: r.at,
+      flagged: true,
+    })),
     ...fbRows.map((r): QueueItem => ({
       kind: 'feedback',
       id: r.id,
@@ -139,6 +157,7 @@ export async function getOverview(deps: Deps): Promise<Overview> {
   return {
     applicationsToReview: apps?.n ?? 0,
     feedbackToReview: fb?.n ?? 0,
+    emailsFailed: emailsFailed?.n ?? 0,
     feedbackFlagged: flagged?.n ?? 0,
     activeLicenses: active?.n ?? 0,
     licensesExpiringSoon: expiring?.n ?? 0,

@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { index, integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // Email opt-ins, one row per Auth0 user. Only the address, the Auth0 sub, the opt-in
 // times and the product slugs live here. No usage or patient data, here or in Resend.
@@ -35,3 +35,29 @@ export const emailCampaigns = pgTable(
 );
 
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
+
+// Every transactional email (license links, application and feedback notices), sent or not.
+// A failed row keeps the message so an admin can retry it from /admin/emails; the body is
+// cleared once it is sent or dismissed. Campaigns are logged in email_campaigns instead.
+export const EMAIL_OUTBOX_STATUSES = ['sent', 'failed', 'dismissed'] as const;
+export const emailOutbox = pgTable(
+  'email_outbox',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    to: text('to').notNull(),
+    subject: text('subject').notNull(),
+    status: text('status', { enum: EMAIL_OUTBOX_STATUSES }).notNull(),
+    error: text('error'), // the last failure, as Resend reported it
+    attempts: integer('attempts').notNull().default(1),
+    resendId: text('resend_id'),
+    textBody: text('text_body'), // kept only while failed
+    htmlBody: text('html_body'), // kept only while failed
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }), // when a failed row was retried or dismissed
+    resolvedBy: text('resolved_by'), // admin email
+  },
+  (t) => [index('email_outbox_status_created_idx').on(t.status, t.createdAt)],
+);
+
+export type EmailOutboxRow = typeof emailOutbox.$inferSelect;

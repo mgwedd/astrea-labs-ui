@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CheckCheck, FileText, KeyRound, MessageSquare } from 'lucide-react';
+import { CheckCheck, FileText, KeyRound, MailWarning, MessageSquare } from 'lucide-react';
 import { Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Empty } from '@astrea/ui';
 import { formatUtc } from '@/lib/admin/format';
 import { EXPIRY_WINDOW_DAYS, getOverview, type QueueItem } from '@/lib/admin/overview';
@@ -9,6 +9,7 @@ const KIND = {
   application: { icon: FileText, label: 'Application', action: 'Review' },
   feedback: { icon: MessageSquare, label: 'Feedback', action: 'Review' },
   license: { icon: KeyRound, label: 'Expiring', action: 'Open' },
+  email: { icon: MailWarning, label: 'Not sent', action: 'Open' },
 } as const;
 
 function QueueRow({ item }: { item: QueueItem }) {
@@ -22,7 +23,7 @@ function QueueRow({ item }: { item: QueueItem }) {
           {item.meta} · {formatUtc(item.at)}
         </span>
       </div>
-      <Badge variant={item.flagged ? 'destructive' : 'secondary'}>{item.flagged ? 'Flagged' : label}</Badge>
+      <Badge variant={item.flagged ? 'destructive' : 'secondary'}>{item.flagged && item.kind !== 'email' ? 'Flagged' : label}</Badge>
       <Button asChild variant="outline" size="sm">
         <Link href={item.href}>{action}</Link>
       </Button>
@@ -91,7 +92,7 @@ export default async function AdminHome() {
           <CardHeader>
             <CardTitle id="needs-you" className="flex items-center gap-2">
               Needs you
-              {o.queue.length > 0 && <Badge variant="secondary">{o.applicationsToReview + o.feedbackToReview}</Badge>}
+              {o.queue.length > 0 && <Badge variant="secondary">{o.applicationsToReview + o.feedbackToReview + o.emailsFailed}</Badge>}
             </CardTitle>
             <CardDescription>Flagged first, then oldest first.</CardDescription>
           </CardHeader>
