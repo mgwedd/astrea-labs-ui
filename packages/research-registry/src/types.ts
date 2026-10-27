@@ -58,6 +58,8 @@ export interface Project {
   /** Repo whose GitHub releases feed the downloads page. */
   releases?: GitHubRepo;
   downloads?: Download[];
+  /** Application-gated beta. When set, applying is the primary call to action instead of downloading. */
+  beta?: { apply: string; about: string; audience: string };
   /** Short note on Astrea's role, for collaborations. */
   role?: string;
   /** Source-available / proprietary / OSI licence, shown verbatim. */

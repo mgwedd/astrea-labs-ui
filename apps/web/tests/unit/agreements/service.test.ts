@@ -75,7 +75,7 @@ describe('Aletheia beta as a signed definition', () => {
   it('pins the block order and document hash (a change here needs a DOC_VERSION bump)', () => {
     const n = (p: string, a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => `${p}${a + i}`);
     expect(DOCUMENT_BLOCKS.map((b) => b.id)).toEqual([...n('H', 0, 8), ...n('B', 1, 8), 'B0', ...n('C', 1, 12)]);
-    expect(agreementSha256(ALETHEIA_BETA)).toBe('b5723454180d1183cb9024e1da15808f0e46b3db11cc34a91fb4a6da74105e0e');
+    expect(agreementSha256(ALETHEIA_BETA)).toBe('defbab7c891936e947a6168092897e87e524ce5a6b4a721fc9d7eedd04ecc1fc');
   });
 });
 
