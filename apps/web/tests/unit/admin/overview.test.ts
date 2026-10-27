@@ -6,7 +6,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import * as schema from '@/lib/licensing/db/schema';
 import { betaApplications, licenses, testLicenses } from '@/lib/licensing/db/schema';
-import { emailCampaigns } from '@/lib/email/db/schema';
+import { forumCategories, forumThreads } from '@/lib/forum/db/schema';
 import { feedbackSubmissions } from '@/lib/feedback/db/schema';
 import type { Db } from '@/lib/licensing/service';
 import { getNavCounts, getOverview } from '@/lib/admin/overview';
@@ -57,7 +57,8 @@ describe('getOverview', () => {
       licensesExpiringSoon: 0,
       liveTestLicenses: 0,
       queue: [],
-      lastCampaign: null,
+      openReports: 0,
+      forumActivity: [],
     });
   });
 
@@ -119,13 +120,30 @@ describe('getOverview', () => {
     expect(o.queue).toHaveLength(5);
   });
 
-  it('returns the most recent campaign', async () => {
-    await db.insert(emailCampaigns).values([
-      { subject: 'older', audience: 'news', sentBy: 'a@example.com', sentAt: ago(10), status: 'sent' },
-      { subject: 'newer', audience: 'news', sentBy: 'a@example.com', sentAt: ago(2), status: 'failed' },
-    ]);
+  it('counts open bug reports and feature requests, and lists the latest threads', async () => {
+    const [cat] = await db.insert(forumCategories).values({ slug: 'general', name: 'General', group: 'lab' }).returning();
+    const thread = (title: string, kind: 'discussion' | 'bug' | 'feature', status: 'open' | 'planned' | 'done' | null, daysAgo: number) =>
+      db.insert(forumThreads).values({
+        categoryId: cat!.id,
+        authorSub: 's',
+        authorName: 'n',
+        authorMode: 'username',
+        title,
+        bodyHtml: '<p>x</p>',
+        bodyFormat: 'rich',
+        kind,
+        status,
+        lastActivityAt: ago(daysAgo),
+      });
+    await thread('chat', 'discussion', null, 1);
+    await thread('crash', 'bug', 'open', 3);
+    await thread('idea', 'feature', 'planned', 2);
+    await thread('fixed', 'bug', 'done', 4);
+    for (let i = 0; i < 3; i++) await thread(`old ${i}`, 'discussion', null, 10 + i);
     const o = await getOverview({ db, now: () => NOW });
-    expect(o.lastCampaign).toMatchObject({ subject: 'newer', status: 'failed' });
+    expect(o.openReports).toBe(2);
+    expect(o.forumActivity.map((t) => t.title)).toEqual(['chat', 'idea', 'crash', 'fixed', 'old 0']);
+    expect(o.forumActivity[1]).toMatchObject({ kind: 'feature', status: 'planned', category: 'General' });
   });
 });
 

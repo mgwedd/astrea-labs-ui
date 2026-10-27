@@ -57,7 +57,7 @@ function EmailFrame({ html, narrow }: { html: string; narrow: boolean }) {
   );
 }
 
-export function CampaignComposer({ audiences }: { audiences: Option[] }) {
+export function CampaignComposer({ audiences, onDiscard }: { audiences: Option[]; onDiscard?: () => void }) {
   const [subject, setSubject] = useState('');
   const [html, setHtml] = useState('');
   const [audience, setAudience] = useState(audiences[0]?.value ?? '');
@@ -195,6 +195,7 @@ export function CampaignComposer({ audiences }: { audiences: Option[] }) {
             setSubject('');
             setHtml('');
             setFileError(null);
+            onDiscard?.();
           }}
         >
           Discard
