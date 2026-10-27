@@ -143,8 +143,11 @@ export function ForumEditor({
   disabled = false,
   id,
   'aria-label': ariaLabel = 'Message',
+  initialContent,
 }: {
   onChange: (value: EditorValue) => void;
+  /** HTML to start with, such as a bug report template. Reported through onChange once ready. */
+  initialContent?: string;
   placeholder?: string;
   disabled?: boolean;
   id?: string;
@@ -199,6 +202,10 @@ export function ForumEditor({
     extensions,
     immediatelyRender: false,
     editable: !disabled,
+    content: initialContent,
+    onCreate: ({ editor: e }) => {
+      if (initialContent) onChangeRef.current({ format: 'rich', body: e.getHTML(), empty: e.isEmpty });
+    },
     editorProps: { attributes: { id: id ?? '', role: 'textbox', 'aria-multiline': 'true', 'aria-label': ariaLabel } },
     onUpdate: ({ editor: e }) => onChangeRef.current({ format: 'rich', body: e.getHTML(), empty: e.isEmpty }),
   });
