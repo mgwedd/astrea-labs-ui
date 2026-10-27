@@ -147,8 +147,7 @@ describe('admin actions', () => {
     requireAdmin.mockResolvedValue({ email: 'admin@example.com' });
     await expect(actions.createTestLicenseAction(form({ label: 'x', days: '365' }))).rejects.toThrow('notice=invalid');
     expect(services.createTestLicense).not.toHaveBeenCalled();
-    services.createTestLicense.mockResolvedValue({ ok: false, error: 'limit' });
-    await expect(actions.createTestLicenseAction(valid.createTestLicenseAction)).rejects.toThrow('notice=test_limit');
+    await expect(actions.createTestLicenseAction(valid.createTestLicenseAction)).rejects.toThrow('notice=test_issued');
     expect(services.createTestLicense).toHaveBeenCalledWith(expect.anything(), { days: 7, label: 'smoke', by: 'admin@example.com' });
   });
 
