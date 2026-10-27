@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import { Plus, ShieldAlert, Trash2, TriangleAlert } from 'lucide-react';
 import {
   Button,
   Checkbox,
@@ -22,9 +22,11 @@ import {
   CREDENTIAL_OPTIONS,
   FORMAT_OPTIONS,
   LIMITS,
+  MAC_REQUIREMENTS,
   MACOS_OPTIONS,
   SETTING_OPTIONS,
   US_STATES,
+  macRequirementWarnings,
 } from '@/lib/beta-access/answers';
 import { NO_CLIENT_INFO } from '@/lib/beta-access/content';
 import { Field, FieldSet, controlProps, invalidClass } from '../field';
@@ -44,6 +46,21 @@ function NoClientInfo({ id }: { id?: string }) {
       <ShieldAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
       {NO_CLIENT_INFO}
     </p>
+  );
+}
+
+function MacWarnings({ chip, macos }: { chip: string; macos: string }) {
+  const warnings = macRequirementWarnings(chip, macos);
+  if (warnings.length === 0) return null;
+  return (
+    <div role="status" aria-live="polite" className="flex flex-col gap-2">
+      {warnings.map((w) => (
+        <p key={w} className="flex items-start gap-2 text-sm text-foreground">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          {w}
+        </p>
+      ))}
+    </div>
   );
 }
 
@@ -367,7 +384,7 @@ export function StepAbout({ draft, errors, update }: Props) {
       <Separator />
 
       <div className="flex flex-col gap-6">
-        <SectionTitle info="Aletheia needs macOS 14 or later. Apple silicon with 16 GB is recommended; Intel Macs work with smaller, slower models.">Your Mac</SectionTitle>
+        <SectionTitle info={MAC_REQUIREMENTS}>Your Mac</SectionTitle>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id={fieldId('mac.chip')} label="Chip" error={errors['mac.chip']}>
             <OptionSelect
@@ -390,6 +407,7 @@ export function StepAbout({ draft, errors, update }: Props) {
             />
           </Field>
         </div>
+        <MacWarnings chip={draft.chip} macos={draft.macos} />
       </div>
 
       <Separator />

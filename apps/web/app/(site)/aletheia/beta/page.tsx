@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 const REQUIREMENTS = [
   'You’re a licensed clinician, or pre-licensed under a licensed supervisor',
-  'A Mac on macOS 14 or later',
+  'A Mac on macOS 14 or later with at least 8 GB of memory',
   'Apple silicon with 16 GB of memory recommended; Intel Macs work with smaller, slower models',
   'About 3 to 8 GB of free disk space, including the AI models',
 ];

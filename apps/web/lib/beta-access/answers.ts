@@ -69,6 +69,27 @@ export const MACOS_OPTIONS = [
   { value: "13-or-older", label: "macOS 13 or older" },
 ] as const;
 
+/** Shown on the apply form, beside the chip and macOS questions. */
+export const MAC_REQUIREMENTS =
+  "Minimum: macOS 14 and 8 GB of memory. Recommended: Apple silicon with 16 GB. Intel Macs work with smaller, slower models.";
+
+/**
+ * Warnings for a Mac that falls short of the requirements. They don't block the application;
+ * they tell the applicant what to expect before they apply.
+ */
+export function macRequirementWarnings(chip: string, macos: string): string[] {
+  const warnings: string[] = [];
+  if (macos === "13-or-older") {
+    warnings.push("Aletheia won't install on macOS 13 or older. Update this Mac to macOS 14 or later before you start.");
+  }
+  if (chip === "intel") {
+    warnings.push(
+      "Intel Macs run smaller models, so transcription and notes are slower and less accurate than on Apple silicon.",
+    );
+  }
+  return warnings;
+}
+
 export type CredentialValue = (typeof CREDENTIAL_OPTIONS)[number]["value"];
 export type SettingValue = (typeof SETTING_OPTIONS)[number]["value"];
 export type FormatValue = (typeof FORMAT_OPTIONS)[number]["value"];
