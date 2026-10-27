@@ -37,7 +37,8 @@ import {
   sendKeyLink,
   type Deps,
 } from '../licensing/service';
-import { licenses } from '../licensing/db/schema';
+import { emailOutbox } from '../email/db/schema';
+import { emailSends, licenses } from '../licensing/db/schema';
 import type { BlobStore } from '../agreements/signed/blob';
 import { buildUnsignedPdf, type AuditEvent, type AuditTrail } from '../agreements/signed/pdf';
 import type { Seal, Sealer } from '../agreements/signed/seal';
@@ -886,6 +887,9 @@ export async function resendKeyLink(deps: BetaDeps, lid: string): Promise<'sent'
 
 // ---------------------------------------------------------------- cleanup
 
+/** How long the email logs (email_sends, and sent or dismissed email_outbox rows) are kept. */
+export const EMAIL_LOG_RETENTION_DAYS = 90;
+
 /**
  * Daily: delete unsigned drafts created more than 7 days ago that have no
  * live link or session, and their draft PDFs. Signed records are never touched.
@@ -913,4 +917,20 @@ export async function cleanupDrafts(deps: BetaDeps, limit = 500): Promise<{ dele
     .where(and(inArray(betaApplications.id, ids), eq(betaApplications.status, 'draft'), isNull(betaApplications.documentId)))
     .returning({ id: betaApplications.id });
   return { deleted: deleted.length };
+}
+
+/**
+ * Daily: delete email log rows older than EMAIL_LOG_RETENTION_DAYS. The logs hold
+ * only addresses, subjects and send times (bodies are kept only for failed mail
+ * without a secret link) and exist for rate limits and for finding failed sends.
+ * Failed outbox rows still waiting for an admin are kept.
+ */
+export async function cleanupEmailLogs(deps: BetaDeps): Promise<{ sends: number; outbox: number }> {
+  const cutoff = new Date(nowOf(deps).getTime() - EMAIL_LOG_RETENTION_DAYS * DAY);
+  const sends = await deps.db.delete(emailSends).where(lt(emailSends.sentAt, cutoff)).returning({ id: emailSends.id });
+  const outbox = await deps.db
+    .delete(emailOutbox)
+    .where(and(lt(emailOutbox.createdAt, cutoff), inArray(emailOutbox.status, ['sent', 'dismissed'])))
+    .returning({ id: emailOutbox.id });
+  return { sends: sends.length, outbox: outbox.length };
 }
