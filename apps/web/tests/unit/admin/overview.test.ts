@@ -134,6 +134,6 @@ describe('getNavCounts', () => {
     await app('a@example.com', 'submitted', ago(1));
     await fb('one', 'pending_review');
     await fb('two', 'pending_review');
-    expect(await getNavCounts({ db })).toEqual({ applications: 1, feedback: 2 });
+    expect(await getNavCounts({ db })).toEqual({ applications: 1, feedback: 2, emails: 0 });
   });
 });

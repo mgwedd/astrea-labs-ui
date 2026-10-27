@@ -13,7 +13,7 @@ import {
 } from '@astrea/ui';
 import { isActive, PRIMARY_NAV, type NavItem } from './nav-items';
 
-export type NavCounts = { applications: number; feedback: number };
+export type NavCounts = { applications: number; feedback: number; emails: number };
 
 function Group({ items, counts, pathname }: { items: NavItem[]; counts: NavCounts; pathname: string }) {
   return (

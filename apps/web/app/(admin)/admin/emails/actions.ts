@@ -10,11 +10,13 @@ import { requireAdmin } from '@/lib/admin/gate';
 import type { NoticeKey } from '@/lib/admin/format';
 import { parseAudience } from '@/lib/email/audience';
 import { sendBatch, sendTestEmail } from '@/lib/email/campaigns';
+import { dismissFailed, retryFailed } from '@/lib/email/outbox';
 import { buildEmailHtml, fillPlaceholders, MAX_CAMPAIGN_HTML, sanitizeCampaignHtml } from '@/lib/email/html';
 import { sendCampaign as deliverCampaign, type Db } from '@/lib/email/sends';
 import { signUnsubscribeToken } from '@/lib/email/token';
 import { siteUrlFor } from '@/lib/licensing/server';
 import { getDb } from '@/lib/licensing/db/client';
+import { resendSender } from '@/lib/licensing/mailer';
 
 const PATH = '/admin/emails';
 
@@ -81,4 +83,23 @@ export async function sendCampaign(form: FormData) {
     notice = 'campaign_failed';
   }
   return back(notice);
+}
+
+const OutboxId = z.object({ id: z.string().uuid() });
+
+/** Sends a failed transactional email again, as it was written. */
+export async function retryEmail(form: FormData) {
+  const admin = await requireAdmin();
+  const p = OutboxId.safeParse({ id: form.get('id') });
+  if (!p.success) return back('invalid');
+  const r = await retryFailed({ db: getDb(), send: resendSender() }, p.data.id, admin.email);
+  return back(r.ok ? 'email_retried' : r.reason === 'not_found' ? 'not_found' : 'email_retry_failed');
+}
+
+/** Takes a failed email off the queue without sending it. */
+export async function dismissEmail(form: FormData) {
+  const admin = await requireAdmin();
+  const p = OutboxId.safeParse({ id: form.get('id') });
+  if (!p.success) return back('invalid');
+  return back((await dismissFailed({ db: getDb() }, p.data.id, admin.email)) ? 'email_dismissed' : 'not_found');
 }

@@ -44,6 +44,9 @@ export const NOTICES = {
   campaign_failed: { text: 'No emails were sent. Check the Resend settings and the server log.', error: true },
   test_issued: { text: 'Test license issued. Reveal it below.' },
   test_revoked: { text: 'Test license revoked. Apps drop it at their next revocation check.' },
+  email_retried: { text: 'Email sent.' },
+  email_retry_failed: { text: 'The email failed again. The new error is shown below.', error: true },
+  email_dismissed: { text: 'Email dismissed. It will not be sent.' },
   invalid: { text: 'Some fields are missing or invalid.', error: true },
 } as const satisfies Record<string, { text: string; error?: boolean }>;
 

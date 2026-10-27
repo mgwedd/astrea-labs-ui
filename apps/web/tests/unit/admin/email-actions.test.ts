@@ -31,7 +31,7 @@ describe('email admin actions', () => {
   });
 
   it('covers every exported action', () => {
-    expect(Object.keys(actions).sort()).toEqual(['previewCampaign', 'sendCampaign', 'sendTestCampaign']);
+    expect(Object.keys(actions).sort()).toEqual(['dismissEmail', 'previewCampaign', 'retryEmail', 'sendCampaign', 'sendTestCampaign']);
   });
 
   it('every action stops when the admin gate rejects', async () => {
@@ -39,6 +39,9 @@ describe('email admin actions', () => {
     await expect(actions.previewCampaign(null, valid)).rejects.toThrow('FORBIDDEN');
     await expect(actions.sendTestCampaign(valid)).rejects.toThrow('FORBIDDEN');
     await expect(actions.sendCampaign(valid)).rejects.toThrow('FORBIDDEN');
+    const row = form({ id: '00000000-0000-4000-8000-000000000000' });
+    await expect(actions.retryEmail(row)).rejects.toThrow('FORBIDDEN');
+    await expect(actions.dismissEmail(row)).rejects.toThrow('FORBIDDEN');
     expect(mail.deliver).not.toHaveBeenCalled();
     expect(mail.sendTestEmail).not.toHaveBeenCalled();
   });

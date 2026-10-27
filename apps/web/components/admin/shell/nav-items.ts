@@ -1,13 +1,13 @@
 import { Inbox, KeyRound, LayoutDashboard, Mail, MessageSquare, type LucideIcon } from 'lucide-react';
 
-export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: 'applications' | 'feedback' };
+export type NavItem = { href: string; label: string; icon: LucideIcon; badge?: 'applications' | 'feedback' | 'emails' };
 
 export const PRIMARY_NAV: NavItem[] = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/applications', label: 'Applications', icon: Inbox, badge: 'applications' },
   { href: '/admin/licenses', label: 'Licenses', icon: KeyRound },
   { href: '/admin/feedback', label: 'Feedback', icon: MessageSquare, badge: 'feedback' },
-  { href: '/admin/emails', label: 'Emails', icon: Mail },
+  { href: '/admin/emails', label: 'Emails', icon: Mail, badge: 'emails' },
 ];
 
 /** Overview matches only itself; every other item also matches its sub-routes. */

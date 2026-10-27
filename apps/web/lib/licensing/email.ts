@@ -2,7 +2,14 @@
 // No email ever carries a license key: they carry a single-use link to the
 // page that shows it (see keyLinkEmail).
 
-export type Mail = { to: string; subject: string; text: string; html: string };
+export type Mail = {
+  to: string;
+  subject: string;
+  text: string;
+  html: string;
+  /** Carries a single-use link: if it fails, the outbox keeps no copy and it cannot be retried as written. */
+  secret?: true;
+};
 export interface Mailer {
   send(mail: Mail): Promise<void>;
 }
@@ -69,5 +76,5 @@ export function keyLinkEmail(input: {
 <p>— Astrea Labs</p>
 </body></html>`;
 
-  return { subject: SUBJECTS[input.kind], text, html };
+  return { subject: SUBJECTS[input.kind], text, html, secret: true };
 }
