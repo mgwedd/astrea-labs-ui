@@ -84,11 +84,14 @@ describe('/downloads', () => {
   });
 });
 
-describe('project page download button', () => {
-  it('points Aletheia at /aletheia/download', async () => {
-    getLatestRelease.mockResolvedValue(null);
+describe('project page call to action', () => {
+  it('leads Aletheia with the beta application, not a download', async () => {
     render(await ProjectDetail({ project: getProject('aletheia')! }));
-    expect(screen.getByRole('link', { name: /Download/ })).toHaveAttribute('href', '/aletheia/download');
+    expect(screen.getByRole('link', { name: /Apply for the beta/ })).toHaveAttribute('href', '/aletheia/beta/apply');
+    expect(screen.getByRole('link', { name: 'How the beta works' })).toHaveAttribute('href', '/aletheia/beta');
+    expect(screen.queryByRole('link', { name: /Download/ })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Latest release' })).toBeNull();
+    expect(getLatestRelease).not.toHaveBeenCalled();
   });
 
   it('keeps other projects on /downloads', async () => {

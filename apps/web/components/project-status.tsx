@@ -2,7 +2,7 @@ import type { ProjectStatus } from '@astrea/research-registry';
 import { Badge } from '@astrea/ui';
 
 const STATUS: Record<ProjectStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
-  beta: { label: 'Public beta', variant: 'default' },
+  beta: { label: 'Beta', variant: 'default' },
   active: { label: 'Active', variant: 'secondary' },
   shipped: { label: 'Shipped', variant: 'secondary' },
   research: { label: 'Research', variant: 'outline' },

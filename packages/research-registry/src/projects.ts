@@ -41,6 +41,11 @@ export const projects: Project[] = [
         note: 'macOS 14+ · Apple Silicon with 16 GB recommended',
       },
     ],
+    beta: {
+      apply: '/aletheia/beta/apply',
+      about: '/aletheia/beta',
+      audience: 'For licensed clinicians and supervised pre-licensed clinicians. If you’re approved, we email your key and the download.',
+    },
     license: 'Source-available · all rights reserved',
     platforms: ['macos'],
     featured: true,

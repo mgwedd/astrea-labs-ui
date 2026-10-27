@@ -12,7 +12,7 @@ import { allBlocks, defineAgreement, optionalCheckboxIds, requiredCheckboxIds, t
 export type { Block };
 
 export const DOC_TYPE = "beta-access";
-export const DOC_VERSION = "2026-10-27.1"; // one version for every block in this document
+export const DOC_VERSION = "2026-10-27.2"; // one version for every block in this document
 export const NO_CLIENT_INFO = "Don't include any client or patient information.";
 
 
@@ -134,7 +134,7 @@ const OTHER_ATTESTATIONS: Block[] = [
   },
   {
     id: "C4",
-    text: "**Recording consent.** Before every recording I'll obtain each participant's informed consent, as required by the law of every place where any participant is located, including all-party-consent states such as California, Washington, Florida, Illinois and Pennsylvania. I'll document that consent in my own records, and I won't record anyone who declines.",
+    text: "**Recording consent.** Before every recording I'll obtain each participant's informed consent to be recorded and to have the recording processed by AI on my Mac, as required by the law of every place where any participant is located, including all-party-consent states such as California, Washington, Florida, Illinois and Pennsylvania. I'll record that consent in Aletheia (who consented, how and when) whenever it asks, keep any written consent in my own records, and I won't record anyone who declines.",
   },
   {
     id: "C5",
