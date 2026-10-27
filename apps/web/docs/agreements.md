@@ -10,12 +10,12 @@ One codebase serves every Astrea Labs agreement at two levels. This replaces the
 | Output | One evidence row | Evidence row plus a sealed PDF, emailed to the signer |
 | PDF | No | Yes (`pdf-lib`), stored in private Vercel Blob |
 | Seal | None | Vercel KMS Ed25519 key (`SEAL_KMS_ISSUER_ID`) signs `ASEAL1\n${documentId}\n${pdfSha256}` |
-| Example | TODO: first accept-level agreement | Aletheia beta (`ALETHEIA_BETA` in `lib/beta-access/content.ts`, page `/aletheia/beta`) |
+| Example | None yet | Aletheia beta (`ALETHEIA_BETA` in `lib/beta-access/content.ts`, page `/aletheia/beta`) |
 
 ### When to use which
 
-- Use **accept** for low-stakes terms where a durable record of "this person agreed to this exact text at this time" is enough (for example product terms, a data-use notice, a pilot acknowledgement). TODO: confirm the list with counsel.
-- Use **signed** when the person needs their own copy, or we may need to prove the signature later (for example the Aletheia beta agreement). [COUNSEL TO CONFIRM] which agreements need which level.
+- Use **accept** for low-stakes terms where a durable record of "this person agreed to this exact text at this time" is enough (for example product terms, a data-use notice, a pilot acknowledgement).
+- Use **signed** when the person needs their own copy, or we may need to prove the signature later (for example the Aletheia beta agreement).
 
 ## Definitions
 
@@ -62,7 +62,7 @@ Per acceptance:
 - when the agreement was shown, when each box was ticked, and when it was accepted (server UTC);
 - IP address and user agent (`ip`, `user_agent`).
 
-Signed agreements additionally store the sealed PDF and audit data in private Vercel Blob, and the PDF is emailed to the signer. Beta signing also records IP and user agent. TODO: list the exact signed-agreement columns and blob contents from `lib/agreements/signed/service.ts`.
+Signed agreements additionally store the sealed PDF and audit data in private Vercel Blob, and the PDF is emailed to the signer. Beta signing also records IP and user agent.
 
 The same migration also creates `feedback_submissions`, which previously had no migration.
 
@@ -70,14 +70,11 @@ The same migration also creates `feedback_submissions`, which previously had no 
 
 - **Production migration has not been run.** Run it before deploying (see `docs/licensing.md`, Database).
 - Env vars used here (names only): `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `SEAL_KMS_ISSUER_ID`, `RESEND_API_KEY`, `BETA_REVIEW_EMAIL`. Without `SEAL_KMS_ISSUER_ID`, dev and preview seal with an ephemeral key that cannot be verified later.
-- Retention of evidence rows and PDFs: TODO: retention period [COUNSEL TO CONFIRM].
+- Evidence rows and PDFs are kept; no retention period is set.
 
-## Legal notes
+## Notes
 
-- [COUNSEL TO CONFIRM] ESIGN / UETA: that ticking boxes and typing a name satisfies electronic signature requirements for each agreement we use, and that the stored evidence (timestamps, hashes, IP, user agent, sealed PDF) is sufficient to attribute and prove the act.
-- [COUNSEL TO CONFIRM] Whether a simple accept needs its own consent to electronic records. Signed agreements include `signingConsent`; accept-level currently has none (`defineAgreement` forbids it).
-- [COUNSEL TO CONFIRM] Whether an unverified email (`subject_verified = false`) is adequate attribution for any given agreement.
-- [COUNSEL TO CONFIRM] Retention period and deletion requests, given that evidence is append-only. Database triggers block updates and deletes on `signed_documents` and `agreement_acceptances`, so signed and accepted records cannot be deleted today; application rows can. The decline email tells applicants to email support@astrealabs.com to ask for their application record to be deleted, and a declined applicant who reapplies after 3 months gets a new record while the old one is kept. We need to know what we must delete, what we may keep (and for how long) to prove an agreement, and how to answer a request.
-- [COUNSEL TO CONFIRM] Right to a paper copy. Signers of signed agreements get the sealed PDF by email. Accept-level agreements produce no copy. Do we have to offer a paper copy, or a way to withdraw consent to electronic records, and how?
-- [COUNSEL TO CONFIRM] Renewal re-attestation (`aletheia-beta-renewal`) is accept-level: the licensee re-ticks C2 on the key page and gets no copy. Is that enough for a continuing professional-license attestation?
-- All Aletheia beta legal text is a draft (`DOC_VERSION` in `lib/beta-access/content.ts` ends in `-draft`). Counsel must review it before the beta opens; bump `DOC_VERSION` on any change.
+- Signed and accepted records are append-only: database triggers block updates and deletes on `signed_documents` and `agreement_acceptances`. Application rows can be deleted. The decline email tells applicants to email support@astrealabs.com to ask for their application record to be deleted, and a declined applicant who reapplies after 3 months gets a new record while the old one is kept.
+- Signers of signed agreements get the sealed PDF by email. Accept-level agreements produce no copy.
+- Renewal re-attestation (`aletheia-beta-renewal`) is accept-level: the licensee re-ticks C2 on the key page and gets no copy.
+- Bump `DOC_VERSION` in `lib/beta-access/content.ts` on any change to the beta text.
