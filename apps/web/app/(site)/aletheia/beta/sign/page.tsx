@@ -30,7 +30,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Sign your application',
   robots: { index: false, follow: false },
-  referrer: 'no-referrer',
+  referrer: 'same-origin',
 };
 
 const LINK_PROBLEMS: Record<string, { title: string; body: string }> = {

@@ -5,7 +5,7 @@ import { peekInvite } from '@/lib/accounts/invites';
 import { getDb } from '@/lib/licensing/db/client';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Create your account', robots: { index: false, follow: false }, referrer: 'no-referrer' };
+export const metadata: Metadata = { title: 'Create your account', robots: { index: false, follow: false }, referrer: 'same-origin' };
 
 const PROBLEMS: Record<string, string> = {
   used: 'This link was already used. If you finished creating your account, sign in instead.',
