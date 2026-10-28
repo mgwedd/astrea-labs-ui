@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '@/lib/licensing/db/schema';
-import { betaApplications, documentReviews, emailSends, keyLinks, licenses, signedDocuments } from '@/lib/licensing/db/schema';
+import { accountInvites, betaApplications, documentReviews, emailSends, keyLinks, licenses, signedDocuments } from '@/lib/licensing/db/schema';
 import type { Mail } from '@/lib/licensing/email';
 import { addMonths, requestLicense, type Db } from '@/lib/licensing/service';
 import { LICENSE_PREFIX, publicKeyFromRaw, rawPublicKey, verifyLicense } from '@/lib/licensing/token';
@@ -138,9 +138,9 @@ async function readyToSign(over: Parameters<typeof input>[0] = {}) {
   return opened.sessionToken;
 }
 
-async function signed(over: Parameters<typeof input>[0] = {}) {
+async function signed(over: Parameters<typeof input>[0] = {}, createAccount = false) {
   const session = await readyToSign(over);
-  const r = await sign(deps, session, { name: over.fullName ?? 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta);
+  const r = await sign(deps, session, { name: over.fullName ?? 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES, createAccount }, meta);
   if (!r.ok) throw new Error(`sign ${r.error}`);
   const [app] = await deps.db.select().from(betaApplications).where(eq(betaApplications.documentId, r.documentId));
   return { session, documentId: r.documentId, app };
@@ -558,6 +558,24 @@ describe('terms version', () => {
 });
 
 describe('approve', () => {
+  it('sends the account link only after approving an applicant who requested one', async () => {
+    const { app } = await signed({}, true);
+    expect(app.accountRequested).toBe(true);
+    expect(await deps.db.select().from(accountInvites)).toHaveLength(0);
+    expect(lastTo('jane@example.com').text).toContain('If we approve your beta application');
+    expect(lastTo('jane@example.com').text).not.toContain('/account/join?');
+
+    await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    expect(await deps.db.select().from(accountInvites)).toHaveLength(1);
+    expect(lastTo('jane@example.com').text).toContain('/account/join?');
+  });
+
+  it('does not issue an account invite for an applicant who did not request one', async () => {
+    const { app } = await signed();
+    await approve(deps, { applicationId: app.id, reviewer: 'mw', licenseCheck });
+    expect(await deps.db.select().from(accountInvites)).toHaveLength(0);
+  });
+
   it('records the review, issues a 6-month license and emails a key link that reveals it once', async () => {
     const { app, documentId } = await signed();
     advance(DAY);

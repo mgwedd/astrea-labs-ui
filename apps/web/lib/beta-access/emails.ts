@@ -30,26 +30,21 @@ export function signLinkEmail(input: { url: string; expiresAt: Date; resume: boo
 
 /**
  * Sent to the applicant once the signed application is stored, with their signed PDF attached.
- * `inviteUrl`: an account join link, when they asked for one at signing.
+ * An account request is acknowledged here; its link is sent only after approval.
  */
-export function receivedEmail(input: { inviteUrl?: string } = {}): Omit<Mail, 'to'> {
+export function receivedEmail(input: { accountRequested?: boolean } = {}): Omit<Mail, 'to'> {
   const intro =
     "We've received your signed application for the Aletheia beta. Your signed copy is attached. We review each application by hand and usually decide within 3 business days. We'll email you either way.";
   const contacts = "Add this sender to your contacts so our reply doesn't land in spam.";
   const note = 'Submitting an application does not guarantee a license.';
-  const account = input.inviteUrl
-    ? 'You asked for an Astrea Labs account. Create it with the link below to join the Forums and talk with the team. The link works once and expires in 7 days.'
-    : `Want an Astrea Labs account to join the Forums and talk with the team? Email ${SUPPORT_EMAIL} any time to request one.`;
-  const text = [intro, '', contacts, '', note, '', account, ...(input.inviteUrl ? ['', input.inviteUrl] : []), '', '— Astrea Labs LLC'].join('\n');
+  const account = input.accountRequested
+    ? 'You requested an Astrea Labs account. If we approve your beta application, we will email you a link to create it.'
+    : null;
+  const text = [intro, '', contacts, '', note, ...(account ? ['', account] : []), '', '— Astrea Labs LLC'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(contacts)}</p>
 <p>${escapeHtml(note)}</p>
-${
-  input.inviteUrl
-    ? `<p>${escapeHtml(account)}</p>
-<p><a href="${escapeHtml(input.inviteUrl)}">Create my account</a></p>`
-    : `<p>Want an Astrea Labs account to join the Forums and talk with the team? Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> any time to request one.</p>`
-}`);
+${account ? `<p>${escapeHtml(account)}</p>` : ''}`);
   return { subject: 'We received your Aletheia beta application', text, html, secret: true };
 }
 

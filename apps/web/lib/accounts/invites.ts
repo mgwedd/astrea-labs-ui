@@ -1,5 +1,5 @@
 import { and, eq, gt, isNull } from 'drizzle-orm';
-import { accountInvites, emailSends } from '@/lib/licensing/db/schema';
+import { accountInvites, betaApplications, emailSends } from '@/lib/licensing/db/schema';
 import { escapeHtml, type Mail } from '@/lib/licensing/email';
 import { hashLinkToken, isRateLimited, looksLikeLinkToken, newLinkToken, type Deps } from '@/lib/licensing/service';
 import type { Session } from '@/lib/beta-access/service';
@@ -25,21 +25,44 @@ export function accountInviteEmail(input: { url: string; expiresAt: Date }): Omi
   return { subject: 'Create your Astrea Labs account', text, html, secret: true };
 }
 
-export type OfferResult = 'sent' | 'rate_limited' | 'not_eligible';
+export type OfferResult = 'sent' | 'queued' | 'rate_limited' | 'not_eligible';
 
 /**
- * Email an account invite to the address behind a beta session. Only a session whose email was
- * confirmed through the confirm link qualifies, and the invite is bound to that address.
+ * Remember a confirmed applicant's account request until approval, or email an invite
+ * immediately when the application is already approved. The invite is bound to that address.
  */
 export async function offerInvite(deps: Deps, session: Session | null): Promise<OfferResult> {
   const app = session?.application;
   if (!app || !app.emailConfirmedAt) return 'not_eligible';
+  if (app.status !== 'submitted' && app.status !== 'approved') return 'not_eligible';
+  if (app.status === 'submitted') {
+    const [queued] = await deps.db
+      .update(betaApplications)
+      .set({ accountRequested: true })
+      .where(and(eq(betaApplications.id, app.id), eq(betaApplications.status, 'submitted')))
+      .returning({ id: betaApplications.id });
+    if (queued) return 'queued';
+    // Approval may have completed since this session was read. Re-read the state and
+    // issue the link here so a concurrent approval cannot strand the request.
+    const [current] = await deps.db
+      .select({ status: betaApplications.status })
+      .from(betaApplications)
+      .where(eq(betaApplications.id, app.id))
+      .limit(1);
+    if (current?.status !== 'approved') return 'not_eligible';
+  }
+  const [requested] = await deps.db
+    .update(betaApplications)
+    .set({ accountRequested: true })
+    .where(and(eq(betaApplications.id, app.id), eq(betaApplications.status, 'approved')))
+    .returning({ id: betaApplications.id });
+  if (!requested) return 'not_eligible';
   const email = app.email;
   if (await isRateLimited(deps, email)) return 'rate_limited';
 
   const { url, expiresAt } = await createInvite(deps, { email, applicationId: app.id });
-  await deps.db.insert(emailSends).values({ email, kind: 'account-invite', sentAt: nowOf(deps) });
   await deps.mailer.send({ to: email, ...accountInviteEmail({ url, expiresAt }) });
+  await deps.db.insert(emailSends).values({ email, kind: 'account-invite', sentAt: nowOf(deps) });
   return 'sent';
 }
 

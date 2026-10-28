@@ -1,0 +1,1 @@
+ALTER TABLE "beta_applications" ADD COLUMN "account_requested" boolean DEFAULT false NOT NULL;

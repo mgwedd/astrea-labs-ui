@@ -44,7 +44,12 @@ export function ReviewDecision({ approve, decline }: { approve: ReactNode; decli
         </div>
         {(Object.keys(PANELS) as Choice[]).map((c) => (
           // Both stay mounted so switching keeps what was typed.
-          <section key={c} id={`review-${c}`} hidden={open !== c} aria-label={PANELS[c].title} className="flex flex-col gap-4">
+          <section
+            key={c}
+            id={`review-${c}`}
+            aria-label={PANELS[c].title}
+            className={open === c ? 'flex flex-col gap-4' : 'hidden flex-col gap-4'}
+          >
             <CardDescription>{PANELS[c].description}</CardDescription>
             {forms[c]}
           </section>
