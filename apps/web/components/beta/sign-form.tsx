@@ -107,7 +107,7 @@ export function SignForm({ expectedName, today }: { expectedName: string; today:
         />
         <div className="flex min-w-0 flex-col gap-1.5">
           <Label htmlFor="create-account" className="cursor-pointer text-sm font-normal leading-relaxed">
-            Email me a link to create an Astrea Labs account, to join the forums, report bugs and talk with the team.
+            If my application is approved, email me a link to create an Astrea Labs account, join the forums, report bugs and talk with the team.
           </Label>
           <span className="text-xs text-muted-foreground">Optional</span>
         </div>

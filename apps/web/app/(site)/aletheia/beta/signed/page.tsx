@@ -14,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Application submitted',
   robots: { index: false, follow: false },
-  referrer: 'no-referrer',
+  referrer: 'same-origin',
 };
 
 const NEXT_STEPS = [
@@ -75,7 +75,9 @@ export default async function SignedPage() {
           </Button>
         </CardFooter>
       </Card>
-      {session.application.emailConfirmedAt ? <CreateAccountOffer email={session.application.email} /> : null}
+      {session.application.emailConfirmedAt ? (
+        <CreateAccountOffer email={session.application.email} requested={session.application.accountRequested} />
+      ) : null}
     </div>
   );
 }

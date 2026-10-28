@@ -20,6 +20,7 @@ export function licenseState(l: Pick<License, 'revokedAt' | 'replacedBy' | 'expi
 export const NOTICES = {
   approved: { text: 'Approved. License issued and key link emailed.' },
   approved_unsent: { text: 'Approved and license issued, but the key link email failed. Send it again from Licenses.', error: true },
+  approve_failed: { text: 'Approval failed. Check the server log and try again.', error: true },
   declined: { text: 'Declined. A short email was sent.' },
   declined_unsent: { text: 'Declined, but the email failed.', error: true },
   not_submitted: { text: 'Only a submitted application can be approved or declined.', error: true },

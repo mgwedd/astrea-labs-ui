@@ -494,7 +494,8 @@ export async function sign(
     // Marks the application submitted, only if it is still this unsigned draft in this session.
     claim: (documentId) => sql`
       UPDATE ${betaApplications}
-      SET "status" = 'submitted', "document_id" = ${documentId}::uuid
+      SET "status" = 'submitted', "document_id" = ${documentId}::uuid,
+          "account_requested" = ${input.createAccount === true}
       WHERE "id" = ${app.id}::uuid
         AND "status" = 'draft'
         AND "document_id" IS NULL
@@ -525,19 +526,10 @@ async function notifyReceived(deps: BetaDeps, applicationId: string, opts: { pdf
     console.error('beta notify: lookup failed', errType(err));
     return;
   }
-  // The address was confirmed before signing, so an account invite can go to it.
-  let inviteUrl: string | undefined;
-  if (opts.createAccount) {
-    try {
-      inviteUrl = (await createInvite(deps, { email: app.email, applicationId: app.id })).url;
-    } catch (err) {
-      console.error('beta received: invite failed', errType(err));
-    }
-  }
   try {
     await deps.mailer.send({
       to: app.email,
-      ...receivedEmail({ inviteUrl }),
+      ...receivedEmail({ accountRequested: opts.createAccount }),
       attachments: [{ filename: 'aletheia-beta-application-signed.pdf', content: opts.pdf }],
     });
     await deps.db.insert(emailSends).values({ email: app.email, kind: 'received', sentAt: nowOf(deps) });
@@ -704,11 +696,13 @@ export async function approve(deps: BetaDeps, input: ReviewInput & { licenseChec
   let emailed = true;
   try {
     const [license] = await deps.db.select().from(licenses).where(eq(licenses.lid, lid!)).limit(1);
-    // Best effort: the approval email goes out without the account link if the invite fails.
-    const inviteUrl = await createInvite(deps, { email: license.email, applicationId: app.id }).then(
-      (i) => i.url,
-      (err) => (console.error('beta approve: invite failed', errType(err)), undefined),
-    );
+    // An account link is issued only when the applicant requested one.
+    const inviteUrl = app.accountRequested
+      ? await createInvite(deps, { email: license.email, applicationId: app.id }).then(
+          (i) => i.url,
+          (err) => (console.error('beta approve: invite failed', errType(err)), undefined),
+        )
+      : undefined;
     await sendKeyLink(deps, license, 'issue', app.id, inviteUrl);
   } catch (err) {
     console.error('beta approve: key link email failed', errType(err));

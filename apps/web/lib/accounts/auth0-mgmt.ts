@@ -15,10 +15,16 @@ export const passwordlessConnection = () => config().connection;
  * `invited` in app_metadata is what the pre-user-registration Action checks. The user signs in
  * with a code emailed to them; there is no password to set.
  */
-export async function provisionAccount(email: string): Promise<void> {
+export async function provisionAccount(rawEmail: string): Promise<void> {
+  const email = rawEmail.trim().toLowerCase();
   const c = config();
   const mgmt = new ManagementClient({ domain: c.domain, clientId: c.clientId, clientSecret: c.clientSecret });
   const existing = await mgmt.users.listUsersByEmail({ email });
   if (existing.some((u) => u.identities?.some((i) => i.connection === c.connection))) return;
-  await mgmt.users.create({ connection: c.connection, email, email_verified: true, app_metadata: { invited: true } });
+  try {
+    await mgmt.users.create({ connection: c.connection, email, email_verified: true, app_metadata: { invited: true } });
+  } catch (err) {
+    if ((err as { statusCode?: number })?.statusCode === 409) return;
+    throw err;
+  }
 }

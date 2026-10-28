@@ -71,12 +71,18 @@ export async function approveApplication(form: FormData) {
   if (!parsed.success) return back(z.uuid().safeParse(id).success ? appPath(id) : '/admin/applications', 'invalid');
   const { applicationId, source, result, checkedOn, notes } = parsed.data;
 
-  const r = await approve(betaDeps(), {
-    applicationId,
-    reviewer: user.email,
-    licenseCheck: { source, result, checkedAt: checkedOn },
-    notes: notes || undefined,
-  });
+  let r: Awaited<ReturnType<typeof approve>>;
+  try {
+    r = await approve(betaDeps(), {
+      applicationId,
+      reviewer: user.email,
+      licenseCheck: { source, result, checkedAt: checkedOn },
+      notes: notes || undefined,
+    });
+  } catch (err) {
+    console.error('admin approve failed', err instanceof Error ? err.name : typeof err);
+    return back(appPath(applicationId), 'approve_failed');
+  }
   if (!r.ok) return back(appPath(applicationId), r.error);
   return back(appPath(applicationId), r.emailed ? 'approved' : 'approved_unsent');
 }

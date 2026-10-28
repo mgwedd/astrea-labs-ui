@@ -93,6 +93,7 @@ export const betaApplications = pgTable(
     // applications from before this was recorded.
     acceptedDocs: jsonb('accepted_docs').$type<AcceptedDoc[]>(),
     status: text('status', { enum: ['draft', 'submitted', 'approved', 'declined'] }).notNull().default('draft'),
+    accountRequested: boolean('account_requested').notNull().default(false),
     // Signing link (single use). Only its SHA-256 is stored.
     signLinkHash: text('sign_link_hash'),
     signLinkExpiresAt: timestamp('sign_link_expires_at', { withTimezone: true }),
