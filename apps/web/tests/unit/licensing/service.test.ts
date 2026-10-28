@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/pglite';
 import { migrate } from 'drizzle-orm/pglite/migrator';
 import { eq } from 'drizzle-orm';
 import * as schema from '@/lib/licensing/db/schema';
-import { emailSends, licenses } from '@/lib/licensing/db/schema';
+import { emailSends, licenses, requestThrottle } from '@/lib/licensing/db/schema';
 import type { Mail } from '@/lib/licensing/email';
 import {
   addMonths,
@@ -15,12 +15,15 @@ import {
   DEFAULT_LICENSE_MONTHS,
   issueLicense,
   KEY_LINK_TTL_DAYS,
+  licenseRequestIpKey,
+  pruneRequestThrottle,
   reissueLicense,
   requestLicense,
   revealKeyLink,
   revokeLicense,
   runRenewals,
-  RATE_LIMIT,
+  RECOVERY_IP_LIMIT,
+  RECOVERY_LIMIT,
   tokenFor,
   type Db,
   type Deps,
@@ -136,24 +139,101 @@ describe('requestLicense (resend only)', () => {
     expect(await deps.db.select().from(licenses)).toHaveLength(1);
   });
 
-  it('does not resend to an address whose license was revoked', async () => {
+  it('does not resend to an address whose only license was revoked', async () => {
     const row = await issue('ann@example.com');
     await revokeLicense(deps, row.lid, 'abuse', 'admin@astrealabs.test');
-    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('blocked');
+    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('none');
     expect(sent).toHaveLength(0);
     expect(await deps.db.select().from(licenses)).toHaveLength(1);
-    // An admin reissue lifts the block.
-    await reissueLicense(deps, row.lid);
-    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('resent');
   });
 
-  it('rate-limits per address per hour', async () => {
+  it('resends a newer active license even when an older one was revoked', async () => {
+    const old = await issue('ann@example.com');
+    await revokeLicense(deps, old.lid, 'lost device', 'admin@astrealabs.test');
+    const current = await issue('ann@example.com');
+    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('resent');
+    expect(await keyIn(sent[0])).toBe(tokenFor(current, key));
+  });
+
+  it('still resends after the onboarding emails an approved applicant just got', async () => {
+    const row = await issue('ann@example.com');
+    await deps.db.insert(emailSends).values(
+      (['sign-link', 'received', 'issue', 'sign-link', 'received', 'decline'] as const).map((kind) => ({
+        email: 'ann@example.com',
+        kind,
+        lid: kind === 'issue' ? row.lid : null,
+        sentAt: clock,
+      })),
+    );
+    expect(await requestLicense(deps, { email: 'ann@example.com' })).toBe('resent');
+    expect(sent).toHaveLength(1);
+  });
+
+  it('rate-limits key links per address per hour and per day', async () => {
     await issue('a@example.com');
     await issue('b@example.com');
-    for (let i = 0; i < RATE_LIMIT.perHour; i++) await requestLicense(deps, { email: 'a@example.com' });
+    for (let i = 0; i < RECOVERY_LIMIT.perHour; i++) expect(await requestLicense(deps, { email: 'a@example.com' })).toBe('resent');
     expect(await requestLicense(deps, { email: 'a@example.com' })).toBe('rate_limited');
-    expect(sent).toHaveLength(RATE_LIMIT.perHour);
+    expect(sent).toHaveLength(RECOVERY_LIMIT.perHour);
     expect(await requestLicense(deps, { email: 'b@example.com' })).toBe('resent');
+
+    // Spread over the day, the daily cap still holds.
+    let resent = RECOVERY_LIMIT.perHour;
+    for (let h = 1; h < 20; h++) {
+      clock = new Date(clock.getTime() + 3600_000);
+      if ((await requestLicense(deps, { email: 'a@example.com' })) === 'resent') resent++;
+    }
+    expect(resent).toBe(RECOVERY_LIMIT.perDay);
+  });
+
+  it('rate-limits per IP whatever the address, and stores no raw IP', async () => {
+    await issue('ann@example.com');
+    const ip = '203.0.113.7';
+    for (let i = 0; i < RECOVERY_IP_LIMIT.perHour; i++) {
+      await requestLicense(deps, { email: `nobody${i}@example.com`, ip });
+    }
+    expect(await requestLicense(deps, { email: 'ann@example.com', ip })).toBe('rate_limited');
+    expect(sent).toHaveLength(0);
+    // Another IP is unaffected.
+    expect(await requestLicense(deps, { email: 'ann@example.com', ip: '198.51.100.2' })).toBe('resent');
+
+    const rows = await deps.db.select().from(requestThrottle);
+    expect(rows.every((r) => !r.key.includes(ip))).toBe(true);
+    expect(rows.filter((r) => r.key === licenseRequestIpKey(ip))).toHaveLength(RECOVERY_IP_LIMIT.perHour + 1);
+
+    // An hour later the hourly window has passed.
+    clock = new Date(clock.getTime() + 3600_000 + 1);
+    expect(await requestLicense(deps, { email: 'ann@example.com', ip })).toBe('resent');
+  });
+
+  it('applies the daily IP limit and prunes rows older than a day', async () => {
+    const ip = '203.0.113.9';
+    for (let i = 0; i < RECOVERY_IP_LIMIT.perDay; i++) {
+      if (i > 0 && i % RECOVERY_IP_LIMIT.perHour === 0) clock = new Date(clock.getTime() + 3600_000 + 1);
+      expect(await requestLicense(deps, { email: `x${i}@example.com`, ip })).toBe('none');
+    }
+    clock = new Date(clock.getTime() + 3600_000 + 1);
+    expect(await requestLicense(deps, { email: 'y@example.com', ip })).toBe('rate_limited');
+    clock = new Date(clock.getTime() + DAY + 1);
+    expect(await requestLicense(deps, { email: 'y@example.com', ip })).toBe('none');
+    expect(await deps.db.select().from(requestThrottle)).toHaveLength(1);
+  });
+
+  it('the daily prune deletes throttle rows more than a day old', async () => {
+    await requestLicense(deps, { email: 'a@example.com', ip: '203.0.113.1' });
+    clock = new Date(clock.getTime() + DAY + 1);
+    await requestLicense(deps, { email: 'a@example.com', ip: '203.0.113.2' });
+    clock = new Date(clock.getTime() + DAY);
+    await pruneRequestThrottle(deps);
+    expect(await deps.db.select().from(requestThrottle)).toHaveLength(0);
+  });
+
+  it('tells a recipient who did not ask to ignore the email, and echoes no input', async () => {
+    await issue('ann@example.com');
+    await requestLicense(deps, { email: 'ann@example.com' });
+    const { text, html, subject } = sent[0];
+    expect(text).toContain('If you didn’t ask for this, ignore this email');
+    for (const part of [text, html, subject]) expect(part).not.toContain('ann@example.com');
   });
 
   it('re-issues under the active key when the stored license used a retired key', async () => {

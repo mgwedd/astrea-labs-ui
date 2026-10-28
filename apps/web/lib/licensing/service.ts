@@ -5,7 +5,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, gt, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import * as schema from './db/schema';
-import { betaApplications, emailSends, keyLinks, licenses, testLicenses, type License } from './db/schema';
+import { betaApplications, emailSends, keyLinks, licenses, requestThrottle, testLicenses, type License } from './db/schema';
 import { keyLinkEmail, type KeyLinkKind, type Mailer } from './email';
 import { acceptanceFor } from './acceptance';
 import {
@@ -26,6 +26,10 @@ export const KEY_LINK_TTL_DAYS = 7;
 /** Default license length when the caller doesn't pass an expiry. */
 export const DEFAULT_LICENSE_MONTHS = 12;
 export const RATE_LIMIT = { perHour: 3, perDay: 6 };
+/** Lost-license key links per address. Counts only key-link and reissue mail, so onboarding mail doesn't use it up. */
+export const RECOVERY_LIMIT = { perHour: 2, perDay: 5 };
+/** Lost-license requests per IP, whatever the address or outcome. */
+export const RECOVERY_IP_LIMIT = { perHour: 10, perDay: 30 };
 
 const DAY_MS = 86_400_000;
 const HOUR_S = 3600;
@@ -129,6 +133,8 @@ export async function sendKeyLink(
   license: License,
   kind: KeyLinkKind,
   applicationId: string | null = null,
+  /** An account join link for the licensee, added to the email. */
+  inviteUrl?: string,
 ): Promise<void> {
   const now = deps.now?.() ?? new Date();
   const token = newLinkToken();
@@ -162,6 +168,7 @@ export async function sendKeyLink(
       downloadUrl: deps.downloadUrl,
       siteUrl: deps.siteUrl,
       kind,
+      inviteUrl,
     }),
   });
   await deps.db.insert(emailSends).values({ email: license.email, kind, lid: license.lid, sentAt: now });
@@ -246,42 +253,76 @@ export async function findActiveLicense(deps: Deps, email: string): Promise<Lice
   return row;
 }
 
-/**
- * An address is blocked while it has a revoked, unexpired license that was not
- * replaced. Otherwise a revoked user could just ask again. An admin reissue
- * lifts the block.
- */
-async function isBlocked(deps: Deps, email: string): Promise<boolean> {
-  const [row] = await deps.db
-    .select({ lid: licenses.lid })
-    .from(licenses)
+/** Key links sent to an address by recovery (or an admin resend) in the last hour and day. */
+async function isRecoveryLimited(deps: Deps, email: string): Promise<boolean> {
+  const now = (deps.now?.() ?? new Date()).getTime();
+  const [counts] = await deps.db
+    .select({
+      hour: sql<number>`count(*) filter (where ${emailSends.sentAt} >= ${new Date(now - HOUR_S * 1000)})`.mapWith(Number),
+      day: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(emailSends)
     .where(
       and(
-        eq(licenses.email, email),
-        isNotNull(licenses.revokedAt),
-        isNull(licenses.replacedBy),
-        unexpired(deps.now?.() ?? new Date()),
+        eq(emailSends.email, email),
+        inArray(emailSends.kind, ['key-link', 'reissue']),
+        gte(emailSends.sentAt, new Date(now - DAY_MS)),
       ),
-    )
-    .limit(1);
-  return row !== undefined;
+    );
+  return counts.hour >= RECOVERY_LIMIT.perHour || counts.day >= RECOVERY_LIMIT.perDay;
 }
 
-export type RequestOutcome = 'resent' | 'none' | 'rate_limited' | 'blocked';
+/** Throttle key for a requester IP: a SHA-256, so no raw IP is stored. */
+export function licenseRequestIpKey(ip: string): string {
+  return `license-request:${createHash('sha256').update(ip, 'utf8').digest('hex')}`;
+}
+
+/**
+ * Records one request from `ip` and says whether it is over RECOVERY_IP_LIMIT.
+ * Every request counts, so guessing addresses costs the same as asking for a real one.
+ * Rows older than a day are deleted here, so the table stays small.
+ */
+async function isIpLimited(deps: Deps, ip: string): Promise<boolean> {
+  const now = deps.now?.() ?? new Date();
+  const key = licenseRequestIpKey(ip);
+  const dayAgo = new Date(now.getTime() - DAY_MS);
+  await deps.db.delete(requestThrottle).where(lte(requestThrottle.at, dayAgo));
+  const [counts] = await deps.db
+    .select({
+      hour: sql<number>`count(*) filter (where ${requestThrottle.at} > ${new Date(now.getTime() - HOUR_S * 1000)})`.mapWith(Number),
+      day: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(requestThrottle)
+    .where(and(eq(requestThrottle.key, key), gt(requestThrottle.at, dayAgo)));
+  await deps.db.insert(requestThrottle).values({ key, at: now });
+  return counts.hour >= RECOVERY_IP_LIMIT.perHour || counts.day >= RECOVERY_IP_LIMIT.perDay;
+}
+
+/** Deletes throttle rows more than a day old. The daily renewals cron calls it. */
+export async function pruneRequestThrottle(deps: Deps): Promise<void> {
+  const now = deps.now?.() ?? new Date();
+  await deps.db.delete(requestThrottle).where(lte(requestThrottle.at, new Date(now.getTime() - DAY_MS)));
+}
+
+export type RequestOutcome = 'resent' | 'none' | 'rate_limited';
 
 /**
  * "Lost my license": resend only. An address with an active license gets a
  * fresh single-use key link (never the key itself). Any other address gets
  * nothing; new keys come only from an approved beta application. The caller
  * must give the visitor the same response whatever the outcome.
+ *
+ * A revoked license is never resent: it is not active, and revoking a license
+ * also revokes everything that replaced it. An older revoked license does not
+ * stop a newer active one from being resent.
  */
-export async function requestLicense(deps: Deps, input: { email: string }): Promise<RequestOutcome> {
+export async function requestLicense(deps: Deps, input: { email: string; ip?: string | null }): Promise<RequestOutcome> {
   const email = normalizeEmail(input.email);
-  if (await isRateLimited(deps, email)) return 'rate_limited';
-  if (await isBlocked(deps, email)) return 'blocked';
+  if (input.ip && (await isIpLimited(deps, input.ip))) return 'rate_limited';
 
   const active = await findActiveLicense(deps, email);
   if (!active) return 'none';
+  if (await isRecoveryLimited(deps, email)) return 'rate_limited';
   if (active.kid !== deps.key.kid) {
     // Signed with a retired key: replace it with one under the active key.
     await reissueLicense(deps, active.lid, { kind: 'reissue' });

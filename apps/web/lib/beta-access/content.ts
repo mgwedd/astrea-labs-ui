@@ -12,7 +12,7 @@ import { allBlocks, defineAgreement, requiredCheckboxIds, type Block } from "../
 export type { Block };
 
 export const DOC_TYPE = "beta-access";
-export const DOC_VERSION = "2026-10-27.3"; // one version for every block in this document
+export const DOC_VERSION = "2026-10-27.4"; // one version for every block in this document
 export const NO_CLIENT_INFO = "Don't include any client or patient information.";
 
 
@@ -185,7 +185,7 @@ export const betaAgreement = (legalVersion: string) => defineAgreement({
     intro:
       "This document records the applicant's answers and every disclosure and attestation exactly as shown to " +
       "the applicant. Each block carries its text version and the SHA-256 of its stored UTF-8 text, in which bold " +
-      "is marked with **. At signing, the name, date and C12 tick are stamped in section D and a signing " +
+      "is marked with **. At signing, the drawn signature, typed name, date and C12 tick are stamped in section D and a signing " +
       "certificate page is appended.",
     detailsHeading: "A. About you",
     sections: {
@@ -194,7 +194,8 @@ export const betaAgreement = (legalVersion: string) => defineAgreement({
       C: { heading: "C. Attestations and consents" },
     },
     signatureHeading: "D. Signature",
-    signatureLabel: "Signature (typed full name; must match A1)",
+    signatureLabel: "Typed full name (must match A1)",
+    drawnSignatureLabel: "Signature",
     signerNameLabel: "Name (A1)",
     signerEmailLabel: "Email (A2)",
     termsAckId: "B0",

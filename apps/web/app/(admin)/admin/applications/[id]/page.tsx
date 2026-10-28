@@ -15,6 +15,7 @@ import {
 import { approveApplication, declineApplication } from '../../actions';
 import { ApplicationList } from '@/components/admin/applications/application-list';
 import { LicenseCheckFields } from '@/components/admin/applications/license-check-fields';
+import { ReviewDecision } from '@/components/admin/applications/review-decision';
 import { CHECK_LABELS, FileLinks, SignedDocumentCard, auditOk } from '@/components/admin/applications/signed-document-card';
 import { StatusNav } from '@/components/admin/applications/status-nav';
 import { Details } from '@/components/admin/details';
@@ -82,7 +83,7 @@ export default async function ApplicationPage({ params, searchParams }: Props) {
                   ['Email', app.email],
                   ['Started', formatUtc(app.createdAt)],
                   ['Email confirmed', formatUtc(app.emailConfirmedAt)],
-                  ['License', app.lid ? <code className="break-all">{app.lid}</code> : '—'],
+                  ['Aletheia license', app.lid ? <code className="break-all">{app.lid}</code> : 'Not issued'],
                 ]}
               />
             </CardContent>
@@ -178,51 +179,38 @@ export default async function ApplicationPage({ params, searchParams }: Props) {
           )}
 
           {app.status === 'submitted' && (
-            <div className="grid gap-6 xl:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Approve</CardTitle>
-                  <CardDescription>Issues a beta license and emails a key link.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form action={approveApplication}>
-                    <input type="hidden" name="applicationId" value={app.id} />
-                    <FieldGroup>
-                      <LicenseCheckFields prefix="approve" today={today} required />
-                      <Field>
-                        <FieldLabel htmlFor="approve-notes">Notes (optional)</FieldLabel>
-                        <Textarea id="approve-notes" name="notes" maxLength={2000} />
-                      </Field>
-                      <div>
-                        <SubmitButton>Approve and issue license</SubmitButton>
-                      </div>
-                    </FieldGroup>
-                  </form>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Decline</CardTitle>
-                  <CardDescription>Sends a short email. The license check is optional here.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form action={declineApplication}>
-                    <input type="hidden" name="applicationId" value={app.id} />
-                    <FieldGroup>
-                      <LicenseCheckFields prefix="decline" today={today} />
-                      <Field>
-                        <FieldLabel htmlFor="decline-notes">Notes (optional)</FieldLabel>
-                        <Textarea id="decline-notes" name="notes" maxLength={2000} />
-                      </Field>
-                      <div>
-                        <SubmitButton variant="destructive">Decline</SubmitButton>
-                      </div>
-                    </FieldGroup>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
+            <ReviewDecision
+              approve={
+                <form action={approveApplication}>
+                  <input type="hidden" name="applicationId" value={app.id} />
+                  <FieldGroup>
+                    <LicenseCheckFields prefix="approve" today={today} required />
+                    <Field>
+                      <FieldLabel htmlFor="approve-notes">Notes (optional)</FieldLabel>
+                      <Textarea id="approve-notes" name="notes" maxLength={2000} />
+                    </Field>
+                    <div>
+                      <SubmitButton>Approve and issue license</SubmitButton>
+                    </div>
+                  </FieldGroup>
+                </form>
+              }
+              decline={
+                <form action={declineApplication}>
+                  <input type="hidden" name="applicationId" value={app.id} />
+                  <FieldGroup>
+                    <LicenseCheckFields prefix="decline" today={today} />
+                    <Field>
+                      <FieldLabel htmlFor="decline-notes">Notes (optional)</FieldLabel>
+                      <Textarea id="decline-notes" name="notes" maxLength={2000} />
+                    </Field>
+                    <div>
+                      <SubmitButton variant="destructive">Decline</SubmitButton>
+                    </div>
+                  </FieldGroup>
+                </form>
+              }
+            />
           )}
         </section>
       </div>

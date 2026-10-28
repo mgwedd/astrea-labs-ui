@@ -4,6 +4,8 @@ import type { AuditEvent } from '../../agreements/signed/pdf';
 // Licensing stores no device IDs or install counts, by design. IP address and
 // user agent are stored only as agreement evidence: in signed_documents at
 // signing, and in agreement_acceptances when a licensee re-attests at renewal.
+// The lost-license form keeps a SHA-256 of the requester's IP for up to two days
+// in request_throttle, to rate-limit it; it is never linked to a license.
 
 export const licenses = pgTable(
   'licenses',
@@ -74,6 +76,8 @@ export type SignatureBlock = {
   name: { x: number; y: number };
   date: { x: number; y: number };
   consent: { x: number; y: number; size: number };
+  /** Area above the signature line where the drawn strokes go. Missing on documents built before the pen pad. */
+  drawn?: { x: number; y: number; width: number; height: number };
 };
 
 // Working state of an application. Mutable. The evidence lives in
@@ -205,4 +209,19 @@ export const accountInvites = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('account_invites_token_hash_idx').on(t.tokenHash), index('account_invites_email_idx').on(t.email)],
+);
+
+// ---- Request throttle ----
+
+// One row per lost-license request, keyed by a hash of the requester's IP (see
+// licenseRequestIpKey). Counted to rate-limit the form; rows older than a day
+// are deleted on each request and by the daily renewals cron.
+export const requestThrottle = pgTable(
+  'request_throttle',
+  {
+    id: serial('id').primaryKey(),
+    key: text('key').notNull(),
+    at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('request_throttle_key_at_idx').on(t.key, t.at)],
 );

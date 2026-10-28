@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button, Input } from '@astrea/ui';
+import { Button, Checkbox, Input, Label } from '@astrea/ui';
+import type { Strokes } from '@/lib/agreements/signed/drawn';
 import { SIGNING_CONSENT as C12 } from '@/lib/beta-access/content';
 import { ConsentCheckbox } from './consent-checkbox';
 import { Field, controlProps, invalidClass } from './field';
+import { SignaturePad } from './signature-pad';
 
 // Same comparison as the server's nameKey(): case-insensitive, whitespace-normalised.
 const normalize = (s: string) => s.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -20,6 +22,8 @@ export function SignForm({ expectedName, today }: { expectedName: string; today:
   const [sending, setSending] = useState(false);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [attempted, setAttempted] = useState(false);
+  const [strokes, setStrokes] = useState<Strokes>([]);
+  const [createAccount, setCreateAccount] = useState(false);
 
   const nameMatches = normalize(name) === normalize(expectedName);
   const nameHint =
@@ -29,19 +33,21 @@ export function SignForm({ expectedName, today }: { expectedName: string; today:
         ? 'Type your full name to sign.'
         : undefined;
   const consentError = attempted && !consentAt ? 'Tick this box to sign electronically.' : undefined;
+  const padLocked = !consentAt || !nameMatches;
+  const drawnError = attempted && !padLocked && strokes.length === 0 ? 'Draw your signature to sign.' : undefined;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setAttempted(true);
     setProblem(null);
-    if (!consentAt || !nameMatches) return;
+    if (!consentAt || !nameMatches || strokes.length === 0) return;
 
     setSending(true);
     try {
       const res = await fetch('/api/beta/sign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), consentEsignAt: consentAt }),
+        body: JSON.stringify({ name: name.trim(), consentEsignAt: consentAt, strokes, createAccount }),
       });
       if (res.ok) {
         router.push('/aletheia/beta/signed');
@@ -85,6 +91,27 @@ export function SignForm({ expectedName, today }: { expectedName: string; today:
           </p>
         )}
       </Field>
+      <SignaturePad
+        id="signature-drawn"
+        locked={padLocked}
+        lockedHint="Tick the box and type your name to sign here"
+        error={drawnError}
+        onChange={setStrokes}
+      />
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="create-account"
+          checked={createAccount}
+          onCheckedChange={(v) => setCreateAccount(v === true)}
+          className="mt-0.5"
+        />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="create-account" className="cursor-pointer text-sm font-normal leading-relaxed">
+            Email me a link to create an Astrea Labs account, to join the forums, report bugs and talk with the team.
+          </Label>
+          <span className="text-xs text-muted-foreground">Optional</span>
+        </div>
+      </div>
       {problem && (
         <p role="alert" className="text-sm font-medium text-destructive">
           {problem.message}

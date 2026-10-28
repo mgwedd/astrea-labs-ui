@@ -81,7 +81,8 @@ export default function PrivacyPage() {
           Our hosting provider keeps standard request logs, including IP addresses, for a short time. Vercel Web
           Analytics counts page views on this site. It is switched off on the beta application and key pages and on
           admin pages, and it never records query strings. We do not use ad pixels or session replay. Vercel BotID
-          checks your browser on forms to stop automated sign-ups.
+          checks your browser on forms to stop automated sign-ups. When you ask for a lost license key, we store a
+          hash of your IP address to limit repeat requests, and delete it within two days.
         </p>
 
         <h2>Who processes it</h2>

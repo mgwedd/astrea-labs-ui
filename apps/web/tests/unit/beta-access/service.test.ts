@@ -45,6 +45,8 @@ import {
   type BetaDeps,
 } from '@/lib/beta-access/service';
 
+const STROKES: [number, number][][] = [[[0.1, 0.5], [0.5, 0.3], [0.9, 0.5]]];
+
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
@@ -138,7 +140,7 @@ async function readyToSign(over: Parameters<typeof input>[0] = {}) {
 
 async function signed(over: Parameters<typeof input>[0] = {}) {
   const session = await readyToSign(over);
-  const r = await sign(deps, session, { name: over.fullName ?? 'Jane Doe', consentEsignAt: clock.toISOString() }, meta);
+  const r = await sign(deps, session, { name: over.fullName ?? 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta);
   if (!r.ok) throw new Error(`sign ${r.error}`);
   const [app] = await deps.db.select().from(betaApplications).where(eq(betaApplications.documentId, r.documentId));
   return { session, documentId: r.documentId, app };
@@ -278,7 +280,7 @@ describe('sign', () => {
   it('stores the stamped PDF and the evidence row with its events, then marks the application submitted', async () => {
     const session = await readyToSign();
     const [draft] = await deps.db.select().from(betaApplications);
-    const r = await sign(deps, session, { name: '  jane   DOE ', consentEsignAt: new Date(clock.getTime() - 10_000).toISOString() }, meta);
+    const r = await sign(deps, session, { name: '  jane   DOE ', consentEsignAt: new Date(clock.getTime() - 10_000).toISOString(), strokes: STROKES }, meta);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
@@ -328,14 +330,16 @@ describe('sign', () => {
     expect(blocks.get('C12')).toBe(events[3]!.at);
     expect(blocks.get('B1')).toBe(blocks.get('B0'));
 
-    // Emails: received to the applicant, every answer to the reviewer, no attachments, no key.
+    // Emails: received to the applicant with the signed PDF, every answer to the reviewer, no key.
     const received = lastTo('jane@example.com');
     expect(received.subject).toMatch(/received/i);
+    expect(received.attachments).toHaveLength(1);
+    expect(received.attachments![0]!.filename).toMatch(/\.pdf$/);
     const review = lastTo('review@astrealabs.test');
     expect(review.subject).not.toMatch(/jane/i);
     expect(review.text).toContain('Doe Therapy');
     expect(review.text).toContain(app.id);
-    for (const m of sent) expect(Object.keys(m).filter((k) => k !== 'secret').sort()).toEqual(['html', 'subject', 'text', 'to']);
+    for (const m of sent) expect(Object.keys(m).filter((k) => k !== 'secret' && !(m === received && k === 'attachments')).sort()).toEqual(['html', 'subject', 'text', 'to']);
     expect(sent.every((m) => m.secret === true)).toBe(true);
     expect((await deps.db.select().from(emailSends)).map((e) => e.kind)).toEqual(['sign-link', 'received']);
 
@@ -352,11 +356,11 @@ describe('sign', () => {
 
   it('refuses a name that does not match A1', async () => {
     const session = await readyToSign();
-    expect(await sign(deps, session, { name: 'John Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
+    expect(await sign(deps, session, { name: 'John Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta)).toEqual({
       ok: false,
       error: 'name_mismatch',
     });
-    expect(await sign(deps, session, { name: '   ', consentEsignAt: clock.toISOString() }, meta)).toEqual({
+    expect(await sign(deps, session, { name: '   ', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta)).toEqual({
       ok: false,
       error: 'name_mismatch',
     });
@@ -369,7 +373,7 @@ describe('sign', () => {
     const at = (ms: number) => new Date(clock.getTime() + ms).toISOString();
     // readyToSign viewed the document 2 minutes ago; C12 can't predate that (beyond 1 min of skew).
     for (const consentEsignAt of [at(2 * MIN), at(-2 * HOUR - MIN), at(-3 * MIN - 1000), 'not a date']) {
-      expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt }, meta)).toEqual({ ok: false, error: 'consent_stale' });
+      expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt, strokes: STROKES }, meta)).toEqual({ ok: false, error: 'consent_stale' });
     }
   });
 
@@ -377,14 +381,14 @@ describe('sign', () => {
     await apply(deps, input());
     const opened = await openSigningLink(deps, signLinkIn(sent[0]));
     if (!opened.ok) throw new Error();
-    expect(await sign(deps, opened.sessionToken, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
+    expect(await sign(deps, opened.sessionToken, { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta)).toEqual({
       ok: false,
       error: 'not_viewed',
     });
   });
 
   it('refuses without a valid session', async () => {
-    expect(await sign(deps, undefined, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
+    expect(await sign(deps, undefined, { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta)).toEqual({
       ok: false,
       error: 'session',
     });
@@ -392,7 +396,7 @@ describe('sign', () => {
 
   it('stores one record when signed twice at once, and refuses a later sign', async () => {
     const session = await readyToSign();
-    const body = { name: 'Jane Doe', consentEsignAt: clock.toISOString() };
+    const body = { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES };
     const results = await Promise.all([sign(deps, session, body, meta), sign(deps, session, body, meta)]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.find((r) => !r.ok)).toEqual({ ok: false, error: 'already_signed' });
@@ -405,7 +409,7 @@ describe('sign', () => {
 
   it('leaves nothing submitted when a blob write fails, and can be retried', async () => {
     const session = await readyToSign();
-    const body = { name: 'Jane Doe', consentEsignAt: clock.toISOString() };
+    const body = { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES };
     failPut = (p) => p.endsWith('/document.pdf');
     expect(await sign(deps, session, body, meta)).toEqual({ ok: false, error: 'system', step: 'storage' });
     const [app] = await deps.db.select().from(betaApplications);
@@ -429,7 +433,7 @@ describe('sign', () => {
       return put(p, b, t);
     };
     vi.spyOn(deps.db, 'execute').mockRejectedValueOnce(new Error('simulated'));
-    expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta)).toEqual({
+    expect(await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta)).toEqual({
       ok: false,
       error: 'system',
       step: 'database',
@@ -539,7 +543,15 @@ describe('terms version', () => {
   it('refuses to sign when the version changed after the document was made', async () => {
     const session = await readyToSign();
     docs = legalAt('2026-10-26');
-    const r = await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString() }, meta);
+    const r = await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta);
+    expect(r).toEqual({ ok: false, error: 'terms_changed' });
+    expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
+  });
+
+  it('asks for a new link when the draft predates pen signatures', async () => {
+    const session = await readyToSign();
+    await deps.db.execute(sql`UPDATE beta_applications SET signature_block = signature_block - 'drawn'`);
+    const r = await sign(deps, session, { name: 'Jane Doe', consentEsignAt: clock.toISOString(), strokes: STROKES }, meta);
     expect(r).toEqual({ ok: false, error: 'terms_changed' });
     expect(await deps.db.select().from(signedDocuments)).toHaveLength(0);
   });

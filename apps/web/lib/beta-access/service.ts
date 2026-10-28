@@ -43,6 +43,8 @@ import type { BlobStore } from '../agreements/signed/blob';
 import { buildUnsignedPdf, type AuditEvent, type AuditTrail } from '../agreements/signed/pdf';
 import type { Seal, Sealer } from '../agreements/signed/seal';
 import * as signed from '../agreements/signed/service';
+import type { Strokes } from '../agreements/signed/drawn';
+import { createInvite } from '../accounts/invites';
 import { describeAnswers, type Answers, type ApplicationInput } from './answers';
 import { acceptAgreement, type Db as AgreementsDb } from '../agreements/service';
 import { ALETHEIA_RENEWAL, BETA_FRAME, REQUIRED_AT_APPLY, betaAgreement } from './content';
@@ -432,7 +434,7 @@ export type RequestMeta = { ip: string | null; ua: string | null };
 export async function sign(
   deps: BetaDeps,
   cookieValue: string | undefined,
-  input: { name: string; consentEsignAt: string },
+  input: { name: string; consentEsignAt: string; strokes: Strokes; createAccount?: boolean },
   meta: RequestMeta,
 ): Promise<SignOutcome> {
   const session = await getSession(deps, cookieValue);
@@ -458,6 +460,8 @@ export async function sign(
   // The terms in force must still be the ones ticked and shown in the document.
   const def = betaAgreement((await deps.legalDocs()).version);
   if (signed.consentsAreStale(def, app.consents)) return { ok: false, error: 'terms_changed' };
+  // A draft made before pen signatures shipped has no area to stamp: it needs a new signing link.
+  if (!app.signatureBlock.drawn) return { ok: false, error: 'terms_changed' };
 
   const draft = await deps.blob.get(app.draftPdfPath!);
   if (!draft || sha256Hex(draft) !== app.draftPdfSha256) {
@@ -473,6 +477,7 @@ export async function sign(
     signatureBlock: app.signatureBlock,
     signer: { name: answers.fullName, email: app.email },
     typedName: typed,
+    strokes: input.strokes,
     answers,
     blocks: signed.signedBlocks(def, app.consents, esignAt.toISOString()),
     emailConfirmedAt: app.emailConfirmedAt,
@@ -504,13 +509,13 @@ export async function sign(
   }
   const documentId = result.documentId;
 
-  await notifyReceived(deps, app.id);
+  await notifyReceived(deps, app.id, { pdf: result.pdf, createAccount: input.createAccount === true });
   await tryDelete(deps.blob, [app.draftPdfPath]);
   return { ok: true, documentId };
 }
 
 /** After a successful sign: tell the applicant, and the reviewer if one is set. Failures don't undo the submission. */
-async function notifyReceived(deps: BetaDeps, applicationId: string) {
+async function notifyReceived(deps: BetaDeps, applicationId: string, opts: { pdf: Uint8Array; createAccount: boolean }) {
   let app: BetaApplication;
   let document: SignedDocument;
   try {
@@ -520,8 +525,21 @@ async function notifyReceived(deps: BetaDeps, applicationId: string) {
     console.error('beta notify: lookup failed', errType(err));
     return;
   }
+  // The address was confirmed before signing, so an account invite can go to it.
+  let inviteUrl: string | undefined;
+  if (opts.createAccount) {
+    try {
+      inviteUrl = (await createInvite(deps, { email: app.email, applicationId: app.id })).url;
+    } catch (err) {
+      console.error('beta received: invite failed', errType(err));
+    }
+  }
   try {
-    await deps.mailer.send({ to: app.email, ...receivedEmail() });
+    await deps.mailer.send({
+      to: app.email,
+      ...receivedEmail({ inviteUrl }),
+      attachments: [{ filename: 'aletheia-beta-application-signed.pdf', content: opts.pdf }],
+    });
     await deps.db.insert(emailSends).values({ email: app.email, kind: 'received', sentAt: nowOf(deps) });
   } catch (err) {
     console.error('beta received email failed', errType(err));
@@ -686,7 +704,12 @@ export async function approve(deps: BetaDeps, input: ReviewInput & { licenseChec
   let emailed = true;
   try {
     const [license] = await deps.db.select().from(licenses).where(eq(licenses.lid, lid!)).limit(1);
-    await sendKeyLink(deps, license, 'issue', app.id);
+    // Best effort: the approval email goes out without the account link if the invite fails.
+    const inviteUrl = await createInvite(deps, { email: license.email, applicationId: app.id }).then(
+      (i) => i.url,
+      (err) => (console.error('beta approve: invite failed', errType(err)), undefined),
+    );
+    await sendKeyLink(deps, license, 'issue', app.id, inviteUrl);
   } catch (err) {
     console.error('beta approve: key link email failed', errType(err));
     emailed = false;

@@ -2,10 +2,13 @@ import { checkBotId } from 'botid/server';
 import { z } from 'zod';
 import { betaDeps, errType, isSameOriginJson, json, readSessionCookie, requestMeta } from '@/lib/beta-access/server';
 import { sign } from '@/lib/beta-access/service';
+import { strokesSchema } from '@/lib/agreements/signed/drawn';
 
 const Body = z.object({
   name: z.string().min(1).max(200),
   consentEsignAt: z.iso.datetime({ offset: true }),
+  strokes: strokesSchema,
+  createAccount: z.boolean().optional(),
 });
 
 const STATUS = {
