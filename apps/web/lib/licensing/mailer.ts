@@ -21,7 +21,14 @@ export function resendSender(): Sender {
   const resend = apiKey ? new Resend(apiKey) : null;
   return async (mail) => {
     if (!resend || !from) throw new Error('RESEND_API_KEY and LICENSE_EMAIL_FROM must be set');
-    const { data, error } = await resend.emails.send({ from, to: mail.to, subject: mail.subject, text: mail.text, html: mail.html });
+    const { data, error } = await resend.emails.send({
+      from,
+      to: mail.to,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
+      attachments: mail.attachments?.map((a) => ({ filename: a.filename, content: Buffer.from(a.content) })),
+    });
     if (error) throw new Error(`Resend: ${error.name}: ${error.message}`);
     return data?.id;
   };
@@ -31,7 +38,8 @@ export function resendSender(): Sender {
 function consoleMailer(): Mailer {
   return {
     async send(mail) {
-      console.log(`\n--- license email (dev, not sent) ---\nTo: ${mail.to}\nSubject: ${mail.subject}\n\n${mail.text}\n---\n`);
+      const files = mail.attachments?.map((a) => `${a.filename} (${a.content.byteLength} bytes)`).join(', ');
+      console.log(`\n--- license email (dev, not sent) ---\nTo: ${mail.to}\nSubject: ${mail.subject}\n${files ? `Attachments: ${files}\n` : ''}\n${mail.text}\n---\n`);
     },
   };
 }

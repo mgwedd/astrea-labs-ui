@@ -9,6 +9,7 @@ export type Mail = {
   html: string;
   /** Carries a single-use link: if it fails, the outbox keeps no copy and it cannot be retried as written. */
   secret?: true;
+  attachments?: { filename: string; content: Uint8Array }[];
 };
 export interface Mailer {
   send(mail: Mail): Promise<void>;
@@ -25,7 +26,8 @@ const SUBJECTS: Record<KeyLinkKind, string> = {
 
 const INTROS: Record<KeyLinkKind, string> = {
   issue: 'Your application for the Aletheia beta is approved. Open the link below to see your license key.',
-  'key-link': 'You asked for your Aletheia license again. Open the link below to see your license key.',
+  'key-link':
+    'Here is a new link to your Aletheia license key. Open it below to see the key. If you didn’t ask for this, ignore this email: your license keeps working and nobody else can see the key.',
   reissue: 'We have issued you a new Aletheia license. Open the link below to see it, and use it from now on.',
   renewal:
     'Your Aletheia beta license ends soon. To renew it, open the link below and confirm that your professional license is still active and unrestricted. You will then see your renewed key: paste it into Aletheia in Settings → License key before the old one ends. If you don’t confirm, your current key ends on its usual date.',
@@ -37,6 +39,8 @@ export const escapeHtml = (s: string) =>
 const longDate = (d: Date) =>
   d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 
+export const SUPPORT_EMAIL = 'support@astrealabs.com';
+
 export function keyLinkEmail(input: {
   url: string;
   linkExpiresAt: Date;
@@ -44,11 +48,16 @@ export function keyLinkEmail(input: {
   downloadUrl: string;
   siteUrl: string;
   kind: KeyLinkKind;
+  /** An account join link bound to the licensee's email. */
+  inviteUrl?: string;
 }): Omit<Mail, 'to'> {
   const linkNote = `The link works once and expires on ${longDate(input.linkExpiresAt)}. Don't forward this email.`;
   const validity = input.licenseExpiresAt
-    ? `This license is valid until ${longDate(input.licenseExpiresAt)}. We will email you a renewed one about 30 days before then.`
+    ? `This license is valid until ${longDate(input.licenseExpiresAt)}. We will email you about acquiring an Early Availability license about 30 days before your Beta license expires.`
     : 'This license does not expire.';
+  const support = `Reach out to ${SUPPORT_EMAIL} any time.`;
+  const account =
+    'Create an Astrea Labs account to report bugs, request features and talk with the developers on the forums. The account link works once and expires in 7 days.';
   const lost = `${input.siteUrl}/aletheia/beta`;
   const text = [
     INTROS[input.kind],
@@ -59,8 +68,9 @@ export function keyLinkEmail(input: {
     '',
     `Download Aletheia for macOS: ${input.downloadUrl}`,
     '',
-    validity,
+    `${validity} ${support}`,
     '',
+    ...(input.inviteUrl ? [account, '', input.inviteUrl, ''] : []),
     `Link expired or already used? Request a new one at ${lost}.`,
     '',
     '— Astrea Labs LLC',
@@ -71,8 +81,8 @@ export function keyLinkEmail(input: {
 <p><a href="${escapeHtml(input.url)}">Show my license key</a></p>
 <p>${escapeHtml(linkNote)}</p>
 <p><a href="${escapeHtml(input.downloadUrl)}">Download Aletheia for macOS</a></p>
-<p>${escapeHtml(validity)}</p>
-<p>Link expired or already used? <a href="${escapeHtml(lost)}">Request a new one</a>.</p>
+<p>${escapeHtml(validity)} Reach out to <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> any time.</p>
+${input.inviteUrl ? `<p>${escapeHtml(account)}</p>\n<p><a href="${escapeHtml(input.inviteUrl)}">Create my account</a></p>\n` : ''}<p>Link expired or already used? <a href="${escapeHtml(lost)}">Request a new one</a>.</p>
 <p>— Astrea Labs LLC</p>
 </body></html>`;
 

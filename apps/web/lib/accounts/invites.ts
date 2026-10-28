@@ -37,13 +37,26 @@ export async function offerInvite(deps: Deps, session: Session | null): Promise<
   const email = app.email;
   if (await isRateLimited(deps, email)) return 'rate_limited';
 
-  const now = nowOf(deps);
-  const token = newLinkToken();
-  const expiresAt = new Date(now.getTime() + INVITE_TTL_MS);
-  await deps.db.insert(accountInvites).values({ email, applicationId: app.id, tokenHash: hashLinkToken(token), expiresAt });
-  await deps.db.insert(emailSends).values({ email, kind: 'account-invite', sentAt: now });
-  await deps.mailer.send({ to: email, ...accountInviteEmail({ url: `${deps.siteUrl}/account/join?t=${token}`, expiresAt }) });
+  const { url, expiresAt } = await createInvite(deps, { email, applicationId: app.id });
+  await deps.db.insert(emailSends).values({ email, kind: 'account-invite', sentAt: nowOf(deps) });
+  await deps.mailer.send({ to: email, ...accountInviteEmail({ url, expiresAt }) });
   return 'sent';
+}
+
+/**
+ * Store a single-use invite bound to `email` and return its join link. The caller sends it, only
+ * to that address. Only for an address the applicant confirmed.
+ */
+export async function createInvite(
+  deps: Pick<Deps, 'db' | 'now' | 'siteUrl'>,
+  input: { email: string; applicationId: string; ttlMs?: number },
+): Promise<{ url: string; expiresAt: Date }> {
+  const token = newLinkToken();
+  const expiresAt = new Date(nowOf(deps).getTime() + (input.ttlMs ?? INVITE_TTL_MS));
+  await deps.db
+    .insert(accountInvites)
+    .values({ email: input.email, applicationId: input.applicationId, tokenHash: hashLinkToken(token), expiresAt });
+  return { url: `${deps.siteUrl}/account/join?t=${token}`, expiresAt };
 }
 
 export type InviteState = 'valid' | 'used' | 'expired' | 'invalid';

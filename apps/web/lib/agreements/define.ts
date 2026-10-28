@@ -50,6 +50,8 @@ export type SignedDocumentSpec = {
   signatureHeading: string;
   /** Label over the typed-name box. */
   signatureLabel: string;
+  /** Label over the drawn-signature line. */
+  drawnSignatureLabel: string;
   /** Certificate labels for the signer's name and email. */
   signerNameLabel: string;
   signerEmailLabel: string;

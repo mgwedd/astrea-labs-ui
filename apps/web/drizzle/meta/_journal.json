@@ -120,6 +120,13 @@
       "when": 1793085716271,
       "tag": "0016_drop_updates_opt_in",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793146588778,
+      "tag": "0017_request_throttle",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button, Input, cn } from '@astrea/ui';
+import { LicenseRequestBody } from '@/lib/licensing/request';
 import { Field, controlProps, invalidClass } from './field';
 
 type State =
@@ -40,6 +41,7 @@ function EmailRequestForm({
     e.preventDefault();
     const email = String(new FormData(e.currentTarget).get('email') ?? '').trim();
     if (!email) return setState({ kind: 'error', message: 'Enter your email address.' });
+    if (!LicenseRequestBody.safeParse({ email }).success) return setState({ kind: 'error', message: 'Enter a valid email address.' });
     setState({ kind: 'sending' });
     try {
       const res = await fetch(endpoint, {

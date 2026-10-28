@@ -12,6 +12,7 @@ import type { Db } from '@/lib/licensing/service';
 import type { AgreementDefinition } from '../define';
 import { blockRecords, sha256Hex } from '../evidence';
 import type { BlobStore } from './blob';
+import type { Strokes } from './drawn';
 import { stampAndCertify, type AuditEvent, type AuditTrail } from './pdf';
 import { sealMessage, type Sealer } from './seal';
 
@@ -71,6 +72,8 @@ export type SignInput = {
   signer: { name: string; email: string };
   /** The name as typed at signing. */
   typedName: string;
+  /** The pen signature drawn at signing. */
+  strokes: Strokes;
   /** Stored as-is on the evidence row. */
   answers: unknown;
   blocks: ConsentRecord[];
@@ -87,7 +90,7 @@ export type SignInput = {
 export type SignStep = 'stamp' | 'seal' | 'storage' | 'database';
 
 export type SignResult =
-  | { ok: true; documentId: string }
+  | { ok: true; documentId: string; /** The signed PDF as stored. */ pdf: Uint8Array }
   | { ok: false; error: 'lost' }
   | { ok: false; error: 'store_failed'; step: SignStep };
 
@@ -120,10 +123,12 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
 
   let stored = false;
   let step: SignStep = 'stamp';
+  let signed: Uint8Array | undefined;
   try {
-    const signed = await stampAndCertify(def, input.draft, {
+    signed = await stampAndCertify(def, input.draft, {
       signatureBlock: input.signatureBlock,
       signerName: input.typedName,
+      strokes: input.strokes,
       signedAt: now,
       audit,
     });
@@ -173,5 +178,5 @@ export async function signAndStore(deps: SignedDeps, input: SignInput): Promise<
     await tryDelete(deps.blob, [pdfPath]);
     return { ok: false, error: 'lost' };
   }
-  return { ok: true, documentId };
+  return { ok: true, documentId, pdf: signed! };
 }

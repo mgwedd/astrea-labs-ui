@@ -1,7 +1,8 @@
 // Beta access emails. Same style as lib/licensing/email.ts: plain text first,
-// the HTML part mirrors it. No email carries a license key or a PDF. Emails that carry
+// the HTML part mirrors it. No email carries a license key; only the received email attaches
+// the applicant's own signed PDF. Emails that carry
 // a link or applicant answers are marked secret, so the email log never stores their content.
-import { escapeHtml, type Mail } from '../licensing/email';
+import { escapeHtml, SUPPORT_EMAIL, type Mail } from '../licensing/email';
 import type { BetaApplication, ConsentRecord, SignedDocument } from '../licensing/db/schema';
 import { describeAnswers, type Answers } from './answers';
 
@@ -27,19 +28,33 @@ export function signLinkEmail(input: { url: string; expiresAt: Date; resume: boo
   return { subject: 'Confirm your email to sign your Aletheia beta application', text, html, secret: true };
 }
 
-/** Sent to the applicant once the signed application is stored. */
-export function receivedEmail(): Omit<Mail, 'to'> {
+/**
+ * Sent to the applicant once the signed application is stored, with their signed PDF attached.
+ * `inviteUrl`: an account join link, when they asked for one at signing.
+ */
+export function receivedEmail(input: { inviteUrl?: string } = {}): Omit<Mail, 'to'> {
   const intro =
-    "We've received your signed application for the Aletheia beta. We review each application by hand and will email you when we've decided.";
+    "We've received your signed application for the Aletheia beta. Your signed copy is attached. We review each application by hand and usually decide within 3 business days. We'll email you either way.";
+  const contacts = "Add this sender to your contacts so our reply doesn't land in spam.";
   const note = 'Submitting an application does not guarantee a license.';
-  const text = [intro, '', note, '', '— Astrea Labs LLC'].join('\n');
+  const account = input.inviteUrl
+    ? 'You asked for an Astrea Labs account. Create it with the link below to join the Forums and talk with the team. The link works once and expires in 7 days.'
+    : `Want an Astrea Labs account to join the Forums and talk with the team? Email ${SUPPORT_EMAIL} any time to request one.`;
+  const text = [intro, '', contacts, '', note, '', account, ...(input.inviteUrl ? ['', input.inviteUrl] : []), '', '— Astrea Labs LLC'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
-<p>${escapeHtml(note)}</p>`);
+<p>${escapeHtml(contacts)}</p>
+<p>${escapeHtml(note)}</p>
+${
+  input.inviteUrl
+    ? `<p>${escapeHtml(account)}</p>
+<p><a href="${escapeHtml(input.inviteUrl)}">Create my account</a></p>`
+    : `<p>Want an Astrea Labs account to join the Forums and talk with the team? Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> any time to request one.</p>`
+}`);
   return { subject: 'We received your Aletheia beta application', text, html, secret: true };
 }
 
 /** Where applicants send questions about their application record. */
-export const SUPPORT_EMAIL = 'support@astrealabs.com';
+export { SUPPORT_EMAIL };
 
 /** A short, neutral decline, with when to reapply and what we keep. */
 export function declineEmail(input: { reapplyAfter: Date }): Omit<Mail, 'to'> {

@@ -12,10 +12,11 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import * as fontkitNs from '@pdf-lib/fontkit';
-import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { LineCapStyle, PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import type { ConsentRecord, SignatureBlock } from '@/lib/licensing/db/schema';
 import { allBlocks, type AgreementDefinition, type Block, type SignedDocumentSpec } from '../define';
 import { sha256Hex } from '../evidence';
+import { DRAWN_ASPECT, type Strokes } from './drawn';
 
 export type AuditEvent = {
   type: 'document_created' | 'email_confirmed' | 'document_viewed' | 'consent_esign' | 'signed';
@@ -149,7 +150,7 @@ class Writer {
 
   constructor(
     private doc: PDFDocument,
-    private fonts: Fonts,
+    readonly fonts: Fonts,
   ) {}
 
   font(bold: boolean) {
@@ -426,6 +427,12 @@ const NAME_BOX_H = 32;
 const DATE_BOX_W = 190;
 const DATE_BOX_H = 24;
 const BOX_PAD = 8;
+// Drawn signature: empty space over a line, same aspect as the browser pad.
+const DRAWN_W = 280;
+const DRAWN_H = DRAWN_W / DRAWN_ASPECT;
+const HINT_SIZE = 8;
+const HINT = rgb(0.6, 0.6, 0.6);
+const WHITE = rgb(1, 1, 1);
 
 function drawSignatureSection(
   w: Writer,
@@ -434,29 +441,39 @@ function drawSignatureSection(
   ticked: ConsentRecord | undefined,
 ): SignatureBlock {
   const { spec } = specOf(def);
-  w.ensure(270); // the whole section stays on one page
+  w.ensure(380); // the whole section stays on one page
   w.heading(spec.signatureHeading);
   const { page, consent } = drawBlock(w, def, block, ticked);
   if (!consent) throw new Error(`${block.id} must render as a checkbox`);
   w.gap(4);
+  const hint = (text: string, x: number, y: number) =>
+    page.drawText(text, { x, y, size: HINT_SIZE, font: w.fonts.regular, color: HINT });
+
+  w.text(strong(spec.drawnSignatureLabel), { size: 8.5 });
+  const lineY = w.y - DRAWN_H;
+  page.drawLine({ start: { x: MARGIN, y: lineY }, end: { x: MARGIN + DRAWN_W, y: lineY }, thickness: 0.8, color: INK });
+  hint('Drawn at signing', MARGIN + 4, lineY + 5);
+  w.y = lineY - 12;
 
   w.text(strong(spec.signatureLabel), { size: 8.5 });
   w.gap(2);
   const nameBottom = w.y - NAME_BOX_H;
   page.drawRectangle({ x: MARGIN, y: nameBottom, width: CONTENT_W, height: NAME_BOX_H, borderWidth: 0.8, borderColor: INK });
+  hint('Typed at signing', MARGIN + BOX_PAD, nameBottom + 12);
   w.y = nameBottom - 10;
 
   w.text(strong('Date signed (UTC)'), { size: 8.5 });
   w.gap(2);
   const dateBottom = w.y - DATE_BOX_H;
   page.drawRectangle({ x: MARGIN, y: dateBottom, width: DATE_BOX_W, height: DATE_BOX_H, borderWidth: 0.8, borderColor: INK });
+  hint('Stamped at signing', MARGIN + BOX_PAD, dateBottom + 8);
   w.y = dateBottom - 10;
   if (w.page !== page) throw new Error('Signature section split across pages');
 
   w.text(
     plain(
-      `Signed electronically. At signing, the typed name, the UTC date and the ${block.id} tick are stamped here, and a ` +
-        'signing certificate with the audit trail is appended as the last page.',
+      `Signed electronically. At signing, the drawn signature, the typed name, the UTC date and the ${block.id} tick ` +
+        'are stamped here, and a signing certificate with the audit trail is appended as the last page.',
     ),
     { size: 8, color: MUTED },
   );
@@ -467,7 +484,27 @@ function drawSignatureSection(
     name: { x: r2(MARGIN + BOX_PAD), y: r2(nameBottom + 11) },
     date: { x: r2(MARGIN + BOX_PAD), y: r2(dateBottom + 8) },
     consent: { x: r2(consent.x), y: r2(consent.y), size: consent.size },
+    drawn: { x: MARGIN, y: r2(lineY + 1), width: DRAWN_W, height: r2(DRAWN_H - 2) },
   };
+}
+
+/** Covers a pre-printed hint with white, inside the box border. */
+function coverHint(page: PDFPage, x: number, y: number, width: number, height: number) {
+  page.drawRectangle({ x, y, width, height, color: WHITE });
+}
+
+/** Draws the pen strokes into the area above the signature line. */
+function stampStrokes(page: PDFPage, strokes: Strokes, box: NonNullable<SignatureBlock['drawn']>) {
+  const at = ([px, py]: [number, number]) => ({ x: box.x + px * box.width, y: box.y + (1 - py) * box.height });
+  for (const stroke of strokes) {
+    if (stroke.length === 1) {
+      page.drawCircle({ ...at(stroke[0]!), size: 0.7, color: INK });
+      continue;
+    }
+    for (let i = 1; i < stroke.length; i++) {
+      page.drawLine({ start: at(stroke[i - 1]!), end: at(stroke[i]!), thickness: 1.2, color: INK, lineCap: LineCapStyle.Round });
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -511,16 +548,21 @@ function stampName(page: PDFPage, fonts: Fonts, name: string, at: { x: number; y
 export async function stampAndCertify(
   def: AgreementDefinition,
   unsigned: Uint8Array,
-  input: { signatureBlock: SignatureBlock; signerName: string; signedAt: Date; audit: AuditTrail },
+  input: { signatureBlock: SignatureBlock; signerName: string; strokes: Strokes; signedAt: Date; audit: AuditTrail },
 ): Promise<Uint8Array> {
   const { spec, consent } = specOf(def);
-  const { signatureBlock: sb, signerName, signedAt, audit } = input;
+  const { signatureBlock: sb, signerName, strokes, signedAt, audit } = input;
+  if (!sb.drawn) throw new Error('Document has no drawn-signature area');
   const doc = await PDFDocument.load(unsigned, { updateMetadata: false });
   const fonts = await embedFonts(doc);
   const documentPages = doc.getPageCount();
   doc.setModificationDate(signedAt);
 
   const page = doc.getPage(sb.page);
+  coverHint(page, sb.drawn.x, sb.drawn.y, sb.drawn.width, sb.drawn.height);
+  coverHint(page, sb.name.x - BOX_PAD + 1, sb.name.y - 11 + 1, CONTENT_W - 2, NAME_BOX_H - 2);
+  coverHint(page, sb.date.x - BOX_PAD + 1, sb.date.y - 8 + 1, DATE_BOX_W - 2, DATE_BOX_H - 2);
+  stampStrokes(page, strokes, sb.drawn);
   stampName(page, fonts, signerName, sb.name);
   page.drawText(`${signedAt.toISOString().slice(0, 10)} (UTC)`, {
     x: sb.date.x,
@@ -552,7 +594,7 @@ export async function stampAndCertify(
   w.row('Unsigned SHA-256', plain(audit.unsignedSha256), 150, 9.5, 8.5);
   w.text(
     plain(
-      `SHA-256 of the document exactly as rendered and shown to the signer, before the name, date and ${consent.id} tick ` +
+      `SHA-256 of the document exactly as rendered and shown to the signer, before the signature, name, date and ${consent.id} tick ` +
         'were stamped and this page was appended.',
     ),
     { size: 7.5, x: MARGIN + 150, color: MUTED },
@@ -561,6 +603,7 @@ export async function stampAndCertify(
   w.heading('Signer');
   w.row(spec.signerNameLabel, plain(audit.signerName));
   w.row(spec.signerEmailLabel, plain(audit.signerEmail));
+  w.row('Drawn signature', plain(`${strokes.length} ${strokes.length === 1 ? 'stroke' : 'strokes'}, stamped in section D`));
   w.row('Typed signature', plain(signerName));
   w.row('Signed at (UTC)', plain(signedAt.toISOString()));
   w.row('IP address', plain(audit.signerIp ?? 'Not recorded'));
