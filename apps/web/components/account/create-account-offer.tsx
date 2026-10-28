@@ -7,8 +7,8 @@ type State = 'idle' | 'sending' | 'sent' | 'error';
 
 // Posts to an endpoint that always answers 202 for an eligible session, so the confirmation
 // never reveals whether an account or invite already exists.
-export function CreateAccountOffer({ email }: { email: string }) {
-  const [state, setState] = useState<State>('idle');
+export function CreateAccountOffer({ email, requested = false }: { email: string; requested?: boolean }) {
+  const [state, setState] = useState<State>(requested ? 'sent' : 'idle');
 
   async function onClick() {
     setState('sending');

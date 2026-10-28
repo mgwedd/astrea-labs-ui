@@ -26,4 +26,8 @@ describe('pages that POST a form', () => {
   it.each(posting)('%s keeps the Origin header', (path) => {
     expect(readFileSync(path, 'utf8')).not.toContain("referrer: 'no-referrer'");
   });
+
+  it.each(pages(root))('%s does not use no-referrer', (path) => {
+    expect(readFileSync(path, 'utf8')).not.toContain("referrer: 'no-referrer'");
+  });
 });

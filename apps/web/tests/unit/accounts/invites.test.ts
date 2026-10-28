@@ -75,6 +75,16 @@ describe('offerInvite', () => {
     expect(await offerInvite(deps, s)).toBe('rate_limited');
     expect(sent).toHaveLength(RATE_LIMIT.perHour);
   });
+  it('does not count onboarding emails against the account-invite rate limit', async () => {
+    const s = await session();
+    await deps.db.insert(schema.emailSends).values([
+      { email: 'dr@example.com', kind: 'sign-link', sentAt: clock },
+      { email: 'dr@example.com', kind: 'received', sentAt: clock },
+      { email: 'dr@example.com', kind: 'issue', sentAt: clock },
+    ]);
+    expect(await offerInvite(deps, s)).toBe('sent');
+    expect(sent).toHaveLength(1);
+  });
   it('does not rate limit retries after failed delivery', async () => {
     deps.mailer = { send: async () => { throw new Error('delivery failed'); } };
     const s = await session();

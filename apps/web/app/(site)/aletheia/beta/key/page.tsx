@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Your Aletheia key',
   robots: { index: false, follow: false },
-  referrer: 'no-referrer',
+  referrer: 'same-origin',
 };
 
 export default async function KeyPage({ searchParams }: { searchParams: Promise<{ t?: string | string[] }> }) {

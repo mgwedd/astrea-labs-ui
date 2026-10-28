@@ -1,12 +1,26 @@
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, gte, isNull, sql } from 'drizzle-orm';
 import { accountInvites, betaApplications, emailSends } from '@/lib/licensing/db/schema';
 import { escapeHtml, type Mail } from '@/lib/licensing/email';
-import { hashLinkToken, isRateLimited, looksLikeLinkToken, newLinkToken, type Deps } from '@/lib/licensing/service';
+import { RATE_LIMIT, hashLinkToken, looksLikeLinkToken, newLinkToken, type Deps } from '@/lib/licensing/service';
 import type { Session } from '@/lib/beta-access/service';
 
 export const INVITE_TTL_MS = 7 * 86_400_000;
+const HOUR_MS = 3_600_000;
+const DAY_MS = 86_400_000;
 
 const nowOf = (deps: Pick<Deps, 'now'>) => deps.now?.() ?? new Date();
+
+async function isInviteRateLimited(deps: Deps, email: string): Promise<boolean> {
+  const now = nowOf(deps).getTime();
+  const [counts] = await deps.db
+    .select({
+      hour: sql<number>`count(*) filter (where ${emailSends.sentAt} >= ${new Date(now - HOUR_MS)})`.mapWith(Number),
+      day: sql<number>`count(*)`.mapWith(Number),
+    })
+    .from(emailSends)
+    .where(and(eq(emailSends.email, email), eq(emailSends.kind, 'account-invite'), gte(emailSends.sentAt, new Date(now - DAY_MS))));
+  return counts.hour >= RATE_LIMIT.perHour || counts.day >= RATE_LIMIT.perDay;
+}
 
 export function accountInviteEmail(input: { url: string; expiresAt: Date }): Omit<Mail, 'to'> {
   const expires = input.expiresAt.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
@@ -58,7 +72,7 @@ export async function offerInvite(deps: Deps, session: Session | null): Promise<
     .returning({ id: betaApplications.id });
   if (!requested) return 'not_eligible';
   const email = app.email;
-  if (await isRateLimited(deps, email)) return 'rate_limited';
+  if (await isInviteRateLimited(deps, email)) return 'rate_limited';
 
   const { url, expiresAt } = await createInvite(deps, { email, applicationId: app.id });
   await deps.mailer.send({ to: email, ...accountInviteEmail({ url, expiresAt }) });

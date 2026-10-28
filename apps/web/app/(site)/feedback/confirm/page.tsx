@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { PageHeader } from '@/components/page-header';
 import { ConfirmButton } from '@/components/feedback/confirm-button';
 
-export const metadata: Metadata = { title: 'Confirm feedback', robots: { index: false, follow: false }, referrer: 'no-referrer' };
+export const metadata: Metadata = { title: 'Confirm feedback', robots: { index: false, follow: false }, referrer: 'same-origin' };
 
 // Opening this page changes nothing. Only the button (a POST) confirms,
 // so email link scanners that fetch the URL cannot trigger it.

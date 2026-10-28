@@ -22,8 +22,14 @@ beforeEach(() => {
 describe('provisionAccount', () => {
   it('creates a verified, invited passwordless user for the email', async () => {
     listUsersByEmail.mockResolvedValue([]);
-    await provisionAccount('dr@example.com');
+    await provisionAccount('Dr@Example.com ');
+    expect(listUsersByEmail).toHaveBeenCalledWith({ email: 'dr@example.com' });
     expect(create).toHaveBeenCalledWith({ connection: 'email', email: 'dr@example.com', email_verified: true, app_metadata: { invited: true } });
+  });
+  it('treats a 409 conflict on create as already provisioned', async () => {
+    listUsersByEmail.mockResolvedValue([]);
+    create.mockRejectedValue(Object.assign(new Error('Conflict'), { statusCode: 409 }));
+    await expect(provisionAccount('dr@example.com')).resolves.toBeUndefined();
   });
   it('does nothing when the passwordless user exists', async () => {
     listUsersByEmail.mockResolvedValue([{ identities: [{ connection: 'email' }] }]);
