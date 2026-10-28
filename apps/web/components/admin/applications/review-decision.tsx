@@ -47,6 +47,7 @@ export function ReviewDecision({ approve, decline }: { approve: ReactNode; decli
           <section
             key={c}
             id={`review-${c}`}
+            hidden={open !== c}
             aria-label={PANELS[c].title}
             className={open === c ? 'flex flex-col gap-4' : 'hidden flex-col gap-4'}
           >

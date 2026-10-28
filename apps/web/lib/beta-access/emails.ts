@@ -39,12 +39,12 @@ export function receivedEmail(input: { accountRequested?: boolean } = {}): Omit<
   const note = 'Submitting an application does not guarantee a license.';
   const account = input.accountRequested
     ? 'You requested an Astrea Labs account. If we approve your beta application, we will email you a link to create it.'
-    : null;
-  const text = [intro, '', contacts, '', note, ...(account ? ['', account] : []), '', '— Astrea Labs LLC'].join('\n');
+    : `Want an Astrea Labs account to join the Forums and talk with the team? Email ${SUPPORT_EMAIL} any time to request one.`;
+  const text = [intro, '', contacts, '', note, '', account, '', '— Astrea Labs LLC'].join('\n');
   const html = page(`<p>${escapeHtml(intro)}</p>
 <p>${escapeHtml(contacts)}</p>
 <p>${escapeHtml(note)}</p>
-${account ? `<p>${escapeHtml(account)}</p>` : ''}`);
+${input.accountRequested ? `<p>${escapeHtml(account)}</p>` : `<p>Want an Astrea Labs account to join the Forums and talk with the team? Email <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a> any time to request one.</p>`}`);
   return { subject: 'We received your Aletheia beta application', text, html, secret: true };
 }
 
