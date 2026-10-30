@@ -1,7 +1,7 @@
 // Members forum services. Every function takes its dependencies (db, clock, randomness) as the
 // first argument so it runs the same against Neon in production and PGlite in tests.
 // Access is NOT checked here except where a function says so: gate callers with requireForumMember().
-import { and, asc, desc, eq, gt, ilike, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm';
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import { projects as registryProjects } from '@astrea/research-registry';
@@ -120,7 +120,7 @@ export async function listCategories(deps: Deps): Promise<CategoryRow[]> {
       threadCount: sql<number>`count(${forumThreads.id})::int`,
     })
     .from(forumCategories)
-    .leftJoin(forumThreads, eq(forumThreads.categoryId, forumCategories.id))
+    .leftJoin(forumThreads, and(eq(forumThreads.categoryId, forumCategories.id), isNull(forumThreads.archivedAt)))
     .groupBy(forumCategories.id)
     .orderBy(asc(forumCategories.sort), asc(forumCategories.name));
   const order: Record<ForumGroup, number> = { aletheia: 0, projects: 1, lab: 2 };
@@ -365,6 +365,8 @@ export type ThreadSummary = {
   tags: string[];
   pinned: boolean;
   locked: boolean;
+  /** Set by an admin. Archived threads are hidden from members everywhere. */
+  archived: boolean;
   answered: boolean;
   replyCount: number;
   kind: ThreadKind;
@@ -398,6 +400,8 @@ const ListOptions = z.object({
   sort: z.enum(['latest', 'new', 'top', 'unanswered', 'votes']).default('latest'),
   page: z.number().int().min(1).default(1),
   pageSize: z.number().int().min(1).max(50).default(20),
+  /** Admin only: list archived threads instead of live ones. */
+  archived: z.boolean().default(false),
 });
 export type ListThreadsOptions = z.input<typeof ListOptions>;
 
@@ -435,6 +439,7 @@ async function summaries(
     tags: t.tags,
     pinned: t.pinned,
     locked: t.locked,
+    archived: t.archivedAt !== null,
     answered: t.solutionPostId !== null,
     replyCount: t.replyCount,
     kind: t.kind,
@@ -458,6 +463,10 @@ async function summaries(
 export async function listThreads(deps: Deps, viewer: Viewer, options: ListThreadsOptions = {}): Promise<Page<ThreadSummary>> {
   const o = parse(ListOptions, options);
   const where = [] as ReturnType<typeof eq>[];
+  if (o.archived) {
+    requireAdmin(viewer);
+    where.push(isNotNull(forumThreads.archivedAt));
+  } else where.push(isNull(forumThreads.archivedAt));
   if (o.categorySlug) where.push(eq(forumCategories.slug, o.categorySlug));
   if (o.sort === 'unanswered') where.push(eq(forumThreads.replyCount, 0));
   if (o.kind === 'report') where.push(inArray(forumThreads.kind, ['bug', 'feature']));
@@ -531,14 +540,18 @@ export async function getThread(deps: Deps, viewer: Viewer, threadId: string): P
     .innerJoin(forumCategories, eq(forumCategories.id, forumThreads.categoryId))
     .where(eq(forumThreads.id, threadId))
     .limit(1);
-  if (!row) return null;
+  if (!row || hiddenFrom(viewer, row.thread)) return null;
   const [posts, reacts, [mineView], events, [dup]] = await Promise.all([
     deps.db.select().from(forumPosts).where(eq(forumPosts.threadId, threadId)).orderBy(asc(forumPosts.createdAt), asc(forumPosts.id)),
     deps.db.select().from(forumReactions).where(eq(forumReactions.threadId, threadId)),
     deps.db.select({ at: forumThreadViews.lastViewedAt }).from(forumThreadViews).where(and(eq(forumThreadViews.threadId, threadId), eq(forumThreadViews.auth0Sub, viewer.sub))).limit(1),
     deps.db.select().from(forumStatusEvents).where(eq(forumStatusEvents.threadId, threadId)).orderBy(asc(forumStatusEvents.createdAt), asc(forumStatusEvents.id)),
     row.thread.duplicateOfId
-      ? deps.db.select({ id: forumThreads.id, title: forumThreads.title }).from(forumThreads).where(eq(forumThreads.id, row.thread.duplicateOfId)).limit(1)
+      ? deps.db
+          .select({ id: forumThreads.id, title: forumThreads.title })
+          .from(forumThreads)
+          .where(and(eq(forumThreads.id, row.thread.duplicateOfId), viewer.isAdmin ? undefined : isNull(forumThreads.archivedAt)))
+          .limit(1)
       : [],
   ]);
   const [summary] = await summaries(deps, viewer, [row]);
@@ -618,7 +631,7 @@ export async function createThread(deps: Deps, viewer: Viewer, input: NewThreadI
 export async function createReply(deps: Deps, viewer: Viewer, threadId: string, input: NewReplyInput): Promise<{ id: string }> {
   const v = parse(NewReply, input);
   const [thread] = await deps.db.select().from(forumThreads).where(eq(forumThreads.id, z.string().uuid().safeParse(threadId).success ? threadId : '00000000-0000-0000-0000-000000000000')).limit(1);
-  if (!thread) throw new ForumError('not_found', 'No such thread');
+  if (!thread || hiddenFrom(viewer, thread)) throw new ForumError('not_found', 'No such thread');
   if (thread.locked && !viewer.isAdmin) throw new ForumError('locked', 'This thread is locked');
   if (v.quotePostId) {
     const [q] = await deps.db.select({ id: forumPosts.id }).from(forumPosts).where(and(eq(forumPosts.id, v.quotePostId), eq(forumPosts.threadId, threadId))).limit(1);
@@ -644,7 +657,7 @@ export async function createReply(deps: Deps, viewer: Viewer, threadId: string, 
 export async function markSolution(deps: Deps, viewer: Viewer, threadId: string, postId: string | null): Promise<void> {
   if (!isUuid(threadId) || (postId !== null && !isUuid(postId))) throw new ForumError('not_found', 'No such thread');
   const [t] = await deps.db.select().from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
-  if (!t) throw new ForumError('not_found', 'No such thread');
+  if (!t || hiddenFrom(viewer, t)) throw new ForumError('not_found', 'No such thread');
   if (!viewer.isAdmin && t.authorSub !== viewer.sub) throw new ForumError('forbidden', 'Only the thread author can mark an answer');
   if (postId) {
     const [p] = await deps.db.select({ id: forumPosts.id }).from(forumPosts).where(and(eq(forumPosts.id, postId), eq(forumPosts.threadId, threadId))).limit(1);
@@ -657,12 +670,11 @@ export async function markSolution(deps: Deps, viewer: Viewer, threadId: string,
 export async function toggleReaction(deps: Deps, viewer: Viewer, threadId: string, targetId: string, emoji: string): Promise<boolean> {
   if (!(REACTION_EMOJI as readonly string[]).includes(emoji)) throw new ForumError('invalid', 'Unsupported reaction');
   if (!isUuid(threadId) || !isUuid(targetId)) throw new ForumError('not_found', 'No such post');
+  const [t] = await deps.db.select({ archivedAt: forumThreads.archivedAt }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
+  if (!t || hiddenFrom(viewer, t)) throw new ForumError('not_found', 'No such thread');
   if (targetId !== threadId) {
     const [p] = await deps.db.select({ id: forumPosts.id }).from(forumPosts).where(and(eq(forumPosts.id, targetId), eq(forumPosts.threadId, threadId))).limit(1);
     if (!p) throw new ForumError('not_found', 'No such post');
-  } else {
-    const [t] = await deps.db.select({ id: forumThreads.id }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
-    if (!t) throw new ForumError('not_found', 'No such thread');
   }
   const key = and(eq(forumReactions.targetId, targetId), eq(forumReactions.auth0Sub, viewer.sub), eq(forumReactions.emoji, emoji));
   const removed = await deps.db.delete(forumReactions).where(key).returning({ e: forumReactions.emoji });
@@ -675,8 +687,8 @@ export async function toggleReaction(deps: Deps, viewer: Viewer, threadId: strin
 
 /** Bookmark a thread, or remove the bookmark if it exists. Returns true when the thread is now bookmarked. */
 export async function toggleBookmark(deps: Deps, viewer: Viewer, threadId: string): Promise<boolean> {
-  const [t] = await deps.db.select({ id: forumThreads.id }).from(forumThreads).where(eq(forumThreads.id, z.string().uuid().safeParse(threadId).success ? threadId : '00000000-0000-0000-0000-000000000000')).limit(1);
-  if (!t) throw new ForumError('not_found', 'No such thread');
+  const [t] = await deps.db.select({ archivedAt: forumThreads.archivedAt }).from(forumThreads).where(eq(forumThreads.id, z.string().uuid().safeParse(threadId).success ? threadId : '00000000-0000-0000-0000-000000000000')).limit(1);
+  if (!t || hiddenFrom(viewer, t)) throw new ForumError('not_found', 'No such thread');
   const removed = await deps.db
     .delete(forumBookmarks)
     .where(and(eq(forumBookmarks.auth0Sub, viewer.sub), eq(forumBookmarks.threadId, threadId)))
@@ -686,11 +698,11 @@ export async function toggleBookmark(deps: Deps, viewer: Viewer, threadId: strin
   return true;
 }
 
-/** The viewer's bookmarked threads, most recently bookmarked first. */
+/** The viewer's bookmarked threads, most recently bookmarked first. Archived threads are left out, for admins too. */
 export async function listBookmarks(deps: Deps, viewer: Viewer, options: { page?: number; pageSize?: number } = {}): Promise<Page<ThreadSummary>> {
   const page = Math.max(1, Math.floor(options.page ?? 1));
   const pageSize = Math.min(50, Math.max(1, Math.floor(options.pageSize ?? 20)));
-  const mine = eq(forumBookmarks.auth0Sub, viewer.sub);
+  const mine = and(eq(forumBookmarks.auth0Sub, viewer.sub), isNull(forumThreads.archivedAt));
   const [rows, [{ n }]] = await Promise.all([
     deps.db
       .select(threadCols)
@@ -701,7 +713,7 @@ export async function listBookmarks(deps: Deps, viewer: Viewer, options: { page?
       .orderBy(desc(forumBookmarks.createdAt))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
-    deps.db.select({ n: sql<number>`count(*)::int` }).from(forumBookmarks).where(mine),
+    deps.db.select({ n: sql<number>`count(*)::int` }).from(forumBookmarks).innerJoin(forumThreads, eq(forumThreads.id, forumBookmarks.threadId)).where(mine),
   ]);
   return { items: await summaries(deps, viewer, rows), total: n, page, pageSize };
 }
@@ -715,8 +727,8 @@ export async function listBookmarks(deps: Deps, viewer: Viewer, options: { page?
  */
 export async function toggleVote(deps: Deps, viewer: Viewer, threadId: string): Promise<boolean> {
   if (!isUuid(threadId)) throw new ForumError('not_found', 'No such thread');
-  const [t] = await deps.db.select({ kind: forumThreads.kind, status: forumThreads.status, authorSub: forumThreads.authorSub }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
-  if (!t) throw new ForumError('not_found', 'No such thread');
+  const [t] = await deps.db.select({ kind: forumThreads.kind, status: forumThreads.status, authorSub: forumThreads.authorSub, archivedAt: forumThreads.archivedAt }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
+  if (!t || hiddenFrom(viewer, t)) throw new ForumError('not_found', 'No such thread');
   if (!isReportKind(t.kind)) throw new ForumError('invalid', 'Only bug reports and feature requests take votes');
   if (t.authorSub === viewer.sub) throw new ForumError('forbidden', 'You opened this one, so it already counts you');
   const key = and(eq(forumVotes.threadId, threadId), eq(forumVotes.auth0Sub, viewer.sub));
@@ -740,8 +752,8 @@ export async function toggleVote(deps: Deps, viewer: Viewer, threadId: string): 
 export async function recordView(deps: Deps, viewer: Viewer, threadId: string): Promise<void> {
   if (!z.string().uuid().safeParse(threadId).success) return;
   const now = nowOf(deps);
-  const [t] = await deps.db.select({ id: forumThreads.id }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
-  if (!t) return;
+  const [t] = await deps.db.select({ archivedAt: forumThreads.archivedAt }).from(forumThreads).where(eq(forumThreads.id, threadId)).limit(1);
+  if (!t || hiddenFrom(viewer, t)) return;
   const bumped = await deps.db
     .update(forumThreadViews)
     .set({ count: sql`${forumThreadViews.count} + 1`, lastViewedAt: now })
@@ -792,7 +804,7 @@ export async function findSimilarThreads(deps: Deps, title: string, options: { l
   if (words.length === 0) return [];
   const hits = words.map((w) => sql`(case when ${forumThreads.title} ilike ${'%' + escapeLike(w) + '%'} then 1 else 0 end)`);
   const score = sql<number>`(${sql.join(hits, sql` + `)})`;
-  const cond = [or(...words.map((w) => ilike(forumThreads.title, `%${escapeLike(w)}%`)))];
+  const cond = [or(...words.map((w) => ilike(forumThreads.title, `%${escapeLike(w)}%`))), isNull(forumThreads.archivedAt)];
   if (options.categorySlug) cond.push(eq(forumCategories.slug, options.categorySlug));
   const rows = await deps.db
     .select({
@@ -819,6 +831,11 @@ function requireAdmin(viewer: Viewer) {
   if (!viewer.isAdmin) throw new ForumError('forbidden', 'Admins only');
 }
 
+/** An archived thread is invisible to members: reads return nothing and writes say `not_found`. */
+function hiddenFrom(viewer: Viewer, thread: { archivedAt: Date | null }): boolean {
+  return thread.archivedAt !== null && !viewer.isAdmin;
+}
+
 async function updateThreadFlag(deps: Deps, viewer: Viewer, threadId: string, set: Partial<typeof forumThreads.$inferInsert>) {
   requireAdmin(viewer);
   if (!z.string().uuid().safeParse(threadId).success) throw new ForumError('not_found', 'No such thread');
@@ -830,6 +847,9 @@ async function updateThreadFlag(deps: Deps, viewer: Viewer, threadId: string, se
 export const setPinned = (deps: Deps, viewer: Viewer, threadId: string, pinned: boolean) => updateThreadFlag(deps, viewer, threadId, { pinned });
 /** Admin only: lock or unlock a thread. Members cannot reply to a locked thread. */
 export const setLocked = (deps: Deps, viewer: Viewer, threadId: string, locked: boolean) => updateThreadFlag(deps, viewer, threadId, { locked });
+/** Admin only: archive or unarchive a thread. Archived threads are hidden from members and only listed with `archived: true`. */
+export const setArchived = (deps: Deps, viewer: Viewer, threadId: string, archived: boolean) =>
+  updateThreadFlag(deps, viewer, threadId, { archivedAt: archived ? nowOf(deps) : null });
 
 const StatusChange = z.object({
   status: z.enum(REPORT_STATUSES),

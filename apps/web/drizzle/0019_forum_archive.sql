@@ -1,0 +1,1 @@
+ALTER TABLE "forum_threads" ADD COLUMN "archived_at" timestamp with time zone;

@@ -8,6 +8,7 @@ import {
   getOwnProfile,
   markSolution,
   searchMentionable,
+  setArchived,
   setLocked,
   setPinned,
   setThreadKind,
@@ -102,6 +103,7 @@ export async function mentions(deps: Deps, prefix: string): Promise<Mentionable[
 export type AdminAction =
   | { kind: 'pin'; threadId: string; value: boolean }
   | { kind: 'lock'; threadId: string; value: boolean }
+  | { kind: 'archive'; threadId: string; value: boolean }
   | { kind: 'status'; threadId: string; change: StatusChangeInput }
   | { kind: 'threadKind'; threadId: string; value: ThreadKind }
   | { kind: 'deleteThread'; threadId: string }
@@ -115,6 +117,8 @@ export const moderate = (deps: Deps, viewer: Viewer, action: AdminAction) =>
         return setPinned(deps, viewer, action.threadId, action.value);
       case 'lock':
         return setLocked(deps, viewer, action.threadId, action.value);
+      case 'archive':
+        return setArchived(deps, viewer, action.threadId, action.value);
       case 'status':
         return setThreadStatus(deps, viewer, action.threadId, action.change);
       case 'threadKind':

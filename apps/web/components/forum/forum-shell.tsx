@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bookmark, Bug, ChevronRight, Menu, MessageSquare, PenLine, Settings } from 'lucide-react';
+import { Archive, Bookmark, Bug, ChevronRight, Menu, MessageSquare, PenLine, Settings } from 'lucide-react';
 import {
   Button,
   Collapsible,
@@ -77,7 +77,7 @@ function Group({ label, items, collapsible, pathname, sheet }: { label: string; 
   );
 }
 
-function ForumNav({ categories, sheet }: { categories: Category[]; sheet?: boolean }) {
+function ForumNav({ categories, isAdmin, sheet }: { categories: Category[]; isAdmin: boolean; sheet?: boolean }) {
   const pathname = usePathname();
   const by = (g: Category['group']) => categories.filter((c) => c.group === g);
   return (
@@ -95,6 +95,12 @@ function ForumNav({ categories, sheet }: { categories: Category[]; sheet?: boole
           <Bookmark className="size-4" aria-hidden />
           Bookmarks
         </NavLink>
+        {isAdmin && (
+          <NavLink href="/forum/archive" active={pathname === '/forum/archive'} onNavigate={sheet}>
+            <Archive className="size-4" aria-hidden />
+            Archive
+          </NavLink>
+        )}
       </div>
       <Group label="Aletheia" items={by('aletheia')} collapsible={false} pathname={pathname} sheet={sheet} />
       <Group label="Projects" items={by('projects')} collapsible pathname={pathname} sheet={sheet} />
@@ -108,7 +114,7 @@ function ForumNav({ categories, sheet }: { categories: Category[]; sheet?: boole
 }
 
 /** Sidebar on desktop; a Sheet behind a Menu button on small screens. */
-export function ForumShell({ categories, children }: { categories: Category[]; children: React.ReactNode }) {
+export function ForumShell({ categories, isAdmin, children }: { categories: Category[]; isAdmin: boolean; children: React.ReactNode }) {
   return (
     <div className="container pb-16 pt-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:gap-10">
@@ -120,7 +126,7 @@ export function ForumShell({ categories, children }: { categories: Category[]; c
                 New thread
               </Link>
             </Button>
-            <ForumNav categories={categories} />
+            <ForumNav categories={categories} isAdmin={isAdmin} />
           </div>
         </aside>
         <div className="flex items-center justify-between gap-2 lg:hidden">
@@ -145,7 +151,7 @@ export function ForumShell({ categories, children }: { categories: Category[]; c
                     </Link>
                   </Button>
                 </SheetClose>
-                <ForumNav categories={categories} sheet />
+                <ForumNav categories={categories} isAdmin={isAdmin} sheet />
               </div>
             </SheetContent>
           </Sheet>

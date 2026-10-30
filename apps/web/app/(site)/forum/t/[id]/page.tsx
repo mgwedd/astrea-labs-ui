@@ -50,6 +50,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ id: str
     tags: t.tags,
     pinned: t.pinned,
     locked: t.locked,
+    archived: t.archived,
     answered: t.answered,
     bookmarked: t.bookmarked,
     isAdmin: viewer.isAdmin,

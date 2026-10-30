@@ -400,6 +400,44 @@ describe('similar threads', () => {
   });
 });
 
+describe('archive', () => {
+  it('lets only admins archive and list the archive', async () => {
+    const t = await post();
+    await expectCode(svc.setArchived(deps, alice, t.id, true), 'forbidden');
+    await expectCode(svc.listThreads(deps, alice, { archived: true }), 'forbidden');
+    await expectCode(svc.setArchived(deps, admin, crypto.randomUUID(), true), 'not_found');
+  });
+  it('hides an archived thread from members everywhere', async () => {
+    const t = await post(alice, { title: 'Import fails on large case files' });
+    const r = await svc.createReply(deps, bob, t.id, { body: rich('<p>same</p>') });
+    await svc.toggleBookmark(deps, bob, t.id);
+    await svc.setArchived(deps, admin, t.id, true);
+    expect((await svc.listThreads(deps, alice)).total).toBe(0);
+    expect((await svc.listCategories(deps)).find((c) => c.slug === 'aletheia')?.threadCount).toBe(0);
+    expect((await svc.listBookmarks(deps, bob)).total).toBe(0);
+    expect(await svc.findSimilarThreads(deps, 'Import of large files')).toEqual([]);
+    expect(await svc.getThread(deps, alice, t.id)).toBeNull();
+    await expectCode(svc.createReply(deps, bob, t.id, { body: rich('<p>x</p>') }), 'not_found');
+    await expectCode(svc.toggleBookmark(deps, bob, t.id), 'not_found');
+    await expectCode(svc.toggleReaction(deps, bob, t.id, t.id, '👍'), 'not_found');
+    await expectCode(svc.toggleVote(deps, bob, t.id), 'not_found');
+    await expectCode(svc.markSolution(deps, alice, t.id, r.id), 'not_found');
+  });
+  it('shows admins the archive only, and unarchiving restores the thread', async () => {
+    const t = await post(alice, { title: 'Archived thread' });
+    await post(alice, { title: 'Live thread' });
+    await svc.setArchived(deps, admin, t.id, true);
+    expect((await svc.listThreads(deps, admin)).items.map((x) => x.title)).toEqual(['Live thread']);
+    const archived = await svc.listThreads(deps, admin, { archived: true });
+    expect(archived.items.map((x) => [x.title, x.archived])).toEqual([['Archived thread', true]]);
+    expect((await svc.getThread(deps, admin, t.id))?.archived).toBe(true);
+    await svc.setArchived(deps, admin, t.id, false);
+    expect((await svc.getThread(deps, alice, t.id))?.archived).toBe(false);
+    expect((await svc.listThreads(deps, alice)).total).toBe(2);
+    expect((await svc.listThreads(deps, admin, { archived: true })).total).toBe(0);
+  });
+});
+
 describe('moderation', () => {
   it('lets only admins pin, lock and delete', async () => {
     const t = await post();

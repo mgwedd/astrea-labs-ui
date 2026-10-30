@@ -59,6 +59,7 @@ export const forumThreads = pgTable(
     tags: text('tags').array().notNull().default([]),
     pinned: boolean('pinned').notNull().default(false),
     locked: boolean('locked').notNull().default(false),
+    archivedAt: timestamp('archived_at', { withTimezone: true }), // null unless an admin archived it; hidden from members
     solutionPostId: uuid('solution_post_id'),
     replyCount: integer('reply_count').notNull().default(0),
     kind: text('kind', { enum: THREAD_KINDS }).notNull().default('discussion'),

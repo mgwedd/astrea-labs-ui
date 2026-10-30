@@ -88,6 +88,11 @@ describe('reports', () => {
     await expectCode(svc.setThreadStatus(deps, admin, dup.id, { status: 'duplicate', duplicateOfId: talk.id }), 'not_found');
     await svc.setThreadStatus(deps, admin, dup.id, { status: 'duplicate', duplicateOfId: orig.id });
     expect((await svc.getThread(deps, alice, dup.id))!.duplicateOf).toEqual({ id: orig.id, title: 'Crash on save' });
+    // An archived original stays hidden from members.
+    await svc.setArchived(deps, admin, orig.id, true);
+    expect((await svc.getThread(deps, alice, dup.id))!.duplicateOf).toBeNull();
+    expect((await svc.getThread(deps, admin, dup.id))!.duplicateOf).toEqual({ id: orig.id, title: 'Crash on save' });
+    await svc.setArchived(deps, admin, orig.id, false);
     await expectCode(svc.toggleVote(deps, alice, dup.id), 'invalid');
     // An existing vote can still be taken back.
     expect(await svc.toggleVote(deps, carol, dup.id)).toBe(false);

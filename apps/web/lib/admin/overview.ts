@@ -107,7 +107,7 @@ export async function getOverview(deps: Deps): Promise<Overview> {
     db
       .select({ n: count() })
       .from(forumThreads)
-      .where(and(inArray(forumThreads.kind, ['bug', 'feature']), inArray(forumThreads.status, [...ACTIVE_STATUSES]))),
+      .where(and(inArray(forumThreads.kind, ['bug', 'feature']), inArray(forumThreads.status, [...ACTIVE_STATUSES]), isNull(forumThreads.archivedAt))),
     db.select({ n: count() }).from(emailOutbox).where(eq(emailOutbox.status, 'failed')),
     db
       .select({ id: emailOutbox.id, to: emailOutbox.to, subject: emailOutbox.subject, error: emailOutbox.error, at: emailOutbox.lastAttemptAt })
@@ -127,6 +127,7 @@ export async function getOverview(deps: Deps): Promise<Overview> {
       })
       .from(forumThreads)
       .innerJoin(forumCategories, eq(forumCategories.id, forumThreads.categoryId))
+      .where(isNull(forumThreads.archivedAt))
       .orderBy(desc(forumThreads.lastActivityAt))
       .limit(LIST_LIMIT),
   ]);

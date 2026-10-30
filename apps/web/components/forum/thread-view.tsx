@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Bookmark, CheckCircle2, Eye, Lock, MoreHorizontal, Pin, Quote, SmilePlus, Trash2, X } from 'lucide-react';
+import { Archive, Bookmark, CheckCircle2, Eye, Lock, MoreHorizontal, Pin, Quote, SmilePlus, Trash2, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +67,8 @@ export type ThreadVM = {
   tags: string[];
   pinned: boolean;
   locked: boolean;
+  /** Only admins can open an archived thread. */
+  archived: boolean;
   answered: boolean;
   bookmarked: boolean;
   isAdmin: boolean;
@@ -347,6 +349,12 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
               Locked
             </Badge>
           )}
+          {thread.archived && (
+            <Badge variant="secondary" className="gap-1">
+              <Archive className="size-3" aria-hidden />
+              Archived
+            </Badge>
+          )}
           {thread.answered && (
             <Badge variant="secondary" className="gap-1">
               <CheckCircle2 className="size-3" aria-hidden />
@@ -419,6 +427,9 @@ export function ThreadView({ thread }: { thread: ThreadVM }) {
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => act(() => moderateAction({ kind: 'lock', threadId: thread.id, value: !thread.locked }))}>
                     {thread.locked ? 'Unlock' : 'Lock replies'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => act(() => moderateAction({ kind: 'archive', threadId: thread.id, value: !thread.archived }))}>
+                    {thread.archived ? 'Unarchive' : 'Archive'}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setConfirmThread(true)}>

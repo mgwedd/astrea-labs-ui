@@ -12,7 +12,7 @@ export default async function ForumLayout({ children }: { children: React.ReactN
   const deps = forumDeps();
   const [categories, profile] = await Promise.all([listCategories(deps), getOwnProfile(deps, viewer)]);
   return (
-    <ForumShell categories={categories}>
+    <ForumShell categories={categories} isAdmin={viewer.isAdmin}>
       {!profile.usernameConfirmed && <ConfirmBanner username={profile.username} />}
       {children}
     </ForumShell>

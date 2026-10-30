@@ -104,6 +104,8 @@ describe('moderation', () => {
     expect((await cmd.moderate(deps, alice, { kind: 'pin', threadId: t.data.id, value: true })).ok).toBe(false);
     expect((await cmd.moderate(deps, admin, { kind: 'pin', threadId: t.data.id, value: true })).ok).toBe(true);
     expect((await cmd.moderate(deps, admin, { kind: 'lock', threadId: t.data.id, value: true })).ok).toBe(true);
+    expect((await cmd.moderate(deps, alice, { kind: 'archive', threadId: t.data.id, value: true })).ok).toBe(false);
+    expect((await cmd.moderate(deps, admin, { kind: 'archive', threadId: t.data.id, value: true })).ok).toBe(true);
     expect((await cmd.moderate(deps, admin, { kind: 'deleteThread', threadId: t.data.id })).ok).toBe(true);
     expect((await svc.listThreads(deps, alice)).total).toBe(0);
   });
