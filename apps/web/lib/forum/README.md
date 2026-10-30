@@ -44,7 +44,7 @@ Categories
 - `listCategories(deps)`: `{ id, slug, name, group, sort, threadCount }[]`, ordered `aletheia`, `projects`, `lab`. Also syncs categories from `packages/research-registry` (Aletheia plus one per other project). The `lab` group is empty.
 
 Threads
-- `listThreads(deps, viewer, { categorySlug?, kind?, status?, sort?: 'latest' | 'new' | 'top' | 'unanswered' | 'votes', page?, pageSize? })`: `{ items: ThreadSummary[], total, page, pageSize }`. `latest` puts pinned first. Omit `categorySlug` for every category. `kind` is `discussion`, `bug`, `feature` or `report` (bugs and features); `status` is `active` or `closed`.
+- `listThreads(deps, viewer, { categorySlug?, kind?, status?, sort?: 'latest' | 'new' | 'top' | 'unanswered' | 'votes', archived?, page?, pageSize? })`: `{ items: ThreadSummary[], total, page, pageSize }`. Archived threads are left out; `archived: true` (admin only) lists only them. `latest` puts pinned first. Omit `categorySlug` for every category. `kind` is `discussion`, `bug`, `feature` or `report` (bugs and features); `status` is `active` or `closed`.
 - `getThread(deps, viewer, threadId)`: `ThreadDetail | null`: opening post, `posts` oldest first, reactions, `viewerLastViewedAt` (for "new since your last visit"), `answered`. Does not count a view.
 - `recordView(deps, viewer, threadId)`: call after `getThread` on the thread page. One viewer counts once per hour.
 - `createThread(deps, viewer, { categorySlug, title, tags?, body, kind? })`: `{ id }`. Title 3 to 140 chars, up to 3 lowercase tags. `kind` defaults to `discussion`; bugs and features start `open`.
@@ -68,7 +68,7 @@ Profile and mentions
 - `searchMentionable(deps, prefix, limit?)`: `{ name, mode }[]` for the `@` picker. Only the name a member currently posts under is searchable, so a handle is never linked to a username.
 
 Admin only (throw `forbidden` for others; check `viewer.isAdmin` to decide whether to render the controls)
-- `setPinned`, `setLocked`, `deleteThread`, `deletePost`.
+- `setPinned`, `setLocked`, `setArchived`, `deleteThread`, `deletePost`.
 - `setThreadStatus(deps, viewer, threadId, { status, note?, duplicateOfId? })`: moves a report and adds a timeline entry. `duplicate` needs another report's id.
 - `setThreadKind(deps, viewer, threadId, kind)`: reclassify. Becoming a report starts it `open`; becoming a discussion clears the status.
 - `getViewCounts(deps, viewer, threadIds)`: `Record<id, number>`.
@@ -78,6 +78,7 @@ Admin only (throw `forbidden` for others; check `viewer.isAdmin` to decide wheth
 
 - **View counts are admin-only.** `ThreadSummary.views` and `ThreadDetail.views` / `viewers` exist only in an admin viewer's payload. Never add them for members.
 - **Identity masking.** `author` is `{ name, mode, isStaff }`. `author.account = { sub, email }` is set only when `viewer.isAdmin`. Authors are snapshotted when they post, so switching between username and handle later does not link the two names. `isStaff` is true for an admin posting under their username.
+- **Archived threads are admin-only.** Members never see them: they are left out of lists, category counts, bookmarks and similar threads, `getThread` returns null, and replying, voting, reacting, bookmarking and marking a solution throw `not_found`. Admins see them at `/forum/archive` and can open them directly.
 - `forum_profiles.email` is admin-only. Do not select it anywhere a member can see it.
 
 ## Not built (the boards show them, the brief did not ask)
